@@ -322,14 +322,14 @@ const titleForRun = (run: Activity): string => {
     }
   }
   // 3. use time+length if location or type is not available
-  const runDistance = run.distance / 1000;
+  // const runDistance = run.distance / 1000;
   const runHour = +run.start_date_local.slice(11, 13);
-  if (runDistance > 20 && runDistance < 40) {
-    return RUN_TITLES.HALF_MARATHON_RUN_TITLE;
-  }
-  if (runDistance >= 40) {
-    return RUN_TITLES.FULL_MARATHON_RUN_TITLE;
-  }
+  // if (runDistance > 20 && runDistance < 40) {
+  //   return RUN_TITLES.HALF_MARATHON_RUN_TITLE;
+  // }
+  // if (runDistance >= 40) {
+  //   return RUN_TITLES.FULL_MARATHON_RUN_TITLE;
+  // }
   if (runHour >= 0 && runHour <= 10) {
     return RUN_TITLES.MORNING_RUN_TITLE;
   }

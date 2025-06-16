@@ -53,7 +53,7 @@ const Index = () => {
     }
     setActivity(filterAndSortRuns(activities, item, func, sortDateFunc));
     setRunIndex(-1);
-    setTitle(`${item} ${name} Running Heatmap`);
+    setTitle(`${item} ${name} Cycling Heatmap`);
   };
 
   const changeYear = (y: string) => {

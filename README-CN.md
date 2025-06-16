@@ -28,7 +28,7 @@
 
 # [这里是白银越野赛全部 21 位逝者的故事](https://github.com/yihong0618/running_page/issues/135)
 
-R.I.P. 希望大家都能健康顺利的跑过终点，逝者安息。
+R.I.P. 希望大家都能健康顺利的骑过终点，逝者安息。
 
 # [打造个人跑步主页](https://yihong.run/running)
 
