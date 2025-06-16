@@ -5,7 +5,7 @@ import {
   Activity,
   RunIds,
 } from '@/utils/utils';
-import { SHOW_ELEVATION_GAIN } from '@/utils/const';
+import { SHOW_ELEVATION_GAIN, SHOW_BPM } from '@/utils/const';
 import styles from './style.module.css';
 
 interface IRunRowProperties {
@@ -48,7 +48,7 @@ const RunRow = ({
       <td>{distance}</td>
       {SHOW_ELEVATION_GAIN && <td>{(run.elevation_gain ?? 0.0).toFixed(1)}</td>}
       {paceParts && <td>{paceParts}</td>}
-      <td>{heartRate && heartRate.toFixed(0)}</td>
+      {SHOW_BPM && <td>{heartRate && heartRate.toFixed(0)}</td>}
       <td>{runTime}</td>
       <td className={styles.runDate}>{run.start_date_local}</td>
     </tr>

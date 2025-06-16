@@ -66,7 +66,7 @@ const YearStat = ({
     >
       <section>
         <Stat value={year} description=" Journey" />
-        <Stat value={runs.length} description=" Runs" />
+        <Stat value={runs.length} description=" Rides" />
         <Stat value={sumDistance} description=" KM" />
         {SHOW_ELEVATION_GAIN && (
           <Stat value={sumElevationGain} description=" Elevation Gain" />

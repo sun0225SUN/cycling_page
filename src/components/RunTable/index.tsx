@@ -6,7 +6,7 @@ import {
   Activity,
   RunIds,
 } from '@/utils/utils';
-import { SHOW_ELEVATION_GAIN } from '@/utils/const';
+import { SHOW_ELEVATION_GAIN, SHOW_BPM } from '@/utils/const';
 
 import RunRow from './RunRow';
 import styles from './style.module.css';
@@ -64,6 +64,9 @@ const RunTable = ({
   ]);
   if (!SHOW_ELEVATION_GAIN) {
     sortFuncMap.delete('Elevation Gain');
+  }
+  if (!SHOW_BPM) {
+    sortFuncMap.delete('BPM');
   }
 
   const handleClick: React.MouseEventHandler<HTMLElement> = (e) => {
