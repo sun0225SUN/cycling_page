@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { Activity } from '../types';
+import { sportLabel } from '../core/i18n';
 import { useLocale } from '../hooks/useLocale';
 import { formatPace } from '../hooks/useActivities';
 import {
@@ -30,74 +31,57 @@ function SummaryCard({
   activities,
   period,
   label,
-  zh,
+  t,
   onSelectActivity,
 }: {
   activities: Activity[];
   period: SummaryPeriod;
   label: string;
-  zh: boolean;
+  t: (key: string) => string;
   onSelectActivity: (a: Activity) => void;
 }) {
   const stats = summarize(activities);
   const chart = summaryChart(activities, period, label);
   const metrics = [
-    [zh ? '活动次数' : 'Activities', String(stats.count)],
+    [t('activityCount'), String(stats.count)],
     [
-      zh ? '运动时间' : 'Moving time',
+      t('movingTime'),
       `${Math.floor(stats.seconds / 3600)}h ${Math.floor((stats.seconds % 3600) / 60)}m`,
     ],
     [
-      zh ? '平均配速' : 'Average pace',
+      t('averagePace'),
       stats.speed > 0 ? `${formatPace(stats.speed)} /km` : '—',
     ],
     [
-      zh ? '平均心率' : 'Average heart rate',
+      t('averageHeartRate'),
       stats.heartRate ? `${Math.round(stats.heartRate)} bpm` : '—',
     ],
+    [t('longestActivity'), `${number(stats.maxDistance / 1000)} km`],
     [
-      zh ? '最远距离' : 'Longest activity',
-      `${number(stats.maxDistance / 1000)} km`,
-    ],
-    [
-      zh ? '最快配速' : 'Fastest pace',
+      t('fastestPace'),
       stats.maxSpeed > 0 ? `${formatPace(stats.maxSpeed)} /km` : '—',
     ],
     [
-      zh ? '平均距离' : 'Average distance',
+      t('averageDistance'),
       `${number(stats.distance / stats.count / 1000)} km`,
     ],
-    [zh ? '累计爬升' : 'Elevation gain', `${number(stats.elevation)} m`],
+    [t('elevationGain'), `${number(stats.elevation)} m`],
   ];
   const chartUnit =
     period === 'life'
-      ? zh
-        ? '年'
-        : 'Year'
+      ? t('chartYear')
       : period === 'year'
-        ? zh
-          ? '月'
-          : 'Month'
+        ? t('chartMonth')
         : period === 'week'
-          ? zh
-            ? '周一至周日'
-            : 'Mon–Sun'
+          ? t('chartWeek')
           : period === 'day'
-            ? zh
-              ? '开始时间'
-              : 'Start time'
-            : zh
-              ? '日'
-              : 'Day';
+            ? t('chartStartTime')
+            : t('chartDay');
   return (
     <article className={panel}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-lg font-semibold">
-          {label === 'Life'
-            ? zh
-              ? '全部历程 · Life'
-              : 'All time · Life'
-            : label}
+          {label === 'Life' ? t('allTimeLife') : label}
         </h2>
         <p className="text-2xl font-semibold text-[var(--color-accent)] tabular-nums">
           {number(stats.distance / 1000)}{' '}
@@ -194,8 +178,7 @@ export function SummaryPage({
   activities: Activity[];
   onSelectActivity: (a: Activity) => void;
 }) {
-  const { locale } = useLocale();
-  const zh = locale === 'zh';
+  const { t } = useLocale();
   const [period, setPeriod] = useState<SummaryPeriod>('month');
   const [sport, setSport] = useState('all');
   const [year, setYear] = useState('all');
@@ -224,28 +207,26 @@ export function SummaryPage({
     [activities, sport, year, period]
   );
   const periods: [SummaryPeriod, string][] = [
-    ['year', zh ? '年' : 'Year'],
-    ['month', zh ? '月' : 'Month'],
-    ['week', zh ? '周' : 'Week'],
-    ['day', zh ? '日' : 'Day'],
-    ['life', 'Life'],
+    ['year', t('periodYear')],
+    ['month', t('periodMonth')],
+    ['week', t('periodWeek')],
+    ['day', t('periodDay')],
+    ['life', t('periodLife')],
   ];
   return (
     <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Summary</h1>
+          <h1 className="text-2xl font-semibold">{t('summary')}</h1>
           <p className="mt-2 text-sm text-[var(--color-muted)]">
-            {zh
-              ? '按时间回看每一段运动历程。'
-              : 'Your activity history, one period at a time.'}
+            {t('summarySubtitle')}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <label className="text-xs text-[var(--color-muted)]">
-            {zh ? '运动类型' : 'Sport'}
+            {t('sport')}
             <select
-              aria-label={zh ? '运动类型' : 'Sport'}
+              aria-label={t('sport')}
               className={`${control} ml-2`}
               value={sport}
               onChange={(e) => {
@@ -253,18 +234,18 @@ export function SummaryPage({
                 setLimit(12);
               }}
             >
-              <option value="all">{zh ? '全部运动' : 'All sports'}</option>
+              <option value="all">{t('allSports')}</option>
               {sports.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {sportLabel(s, t)}
                 </option>
               ))}
             </select>
           </label>
           <label className="text-xs text-[var(--color-muted)]">
-            {zh ? '年份' : 'Year'}
+            {t('year')}
             <select
-              aria-label={zh ? '汇总年份' : 'Summary year'}
+              aria-label={t('summaryYear')}
               className={`${control} ml-2`}
               value={year}
               onChange={(e) => {
@@ -272,7 +253,7 @@ export function SummaryPage({
                 setLimit(12);
               }}
             >
-              <option value="all">{zh ? '全部年份' : 'All years'}</option>
+              <option value="all">{t('allYears')}</option>
               {years.map((y) => (
                 <option key={y}>{y}</option>
               ))}
@@ -283,7 +264,7 @@ export function SummaryPage({
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div
           role="group"
-          aria-label={zh ? '汇总周期' : 'Summary period'}
+          aria-label={t('summaryPeriod')}
           className="flex gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-1"
         >
           {periods.map(([value, label]) => (
@@ -301,7 +282,7 @@ export function SummaryPage({
           ))}
         </div>
         <span className="text-sm text-[var(--color-muted)]">
-          {groups.length} {zh ? '个周期' : 'periods'}
+          {groups.length} {t('periodsCount')}
         </span>
       </div>
       {!groups.length ? (
@@ -309,9 +290,7 @@ export function SummaryPage({
           role="status"
           className={`${panel} py-16 text-center text-[var(--color-muted)]`}
         >
-          {zh
-            ? '这个筛选条件下暂无活动。'
-            : 'No activities match these filters.'}
+          {t('noMatchingActivities')}
         </p>
       ) : (
         <div
@@ -323,7 +302,7 @@ export function SummaryPage({
               label={key}
               activities={items}
               period={period}
-              zh={zh}
+              t={t}
               onSelectActivity={onSelectActivity}
             />
           ))}
@@ -332,7 +311,7 @@ export function SummaryPage({
       {groups.length > limit && (
         <div className="mt-6 text-center">
           <button className={control} onClick={() => setLimit((n) => n + 12)}>
-            {zh ? '加载更多' : 'Load more'} ({limit}/{groups.length})
+            {t('loadMore')} ({limit}/{groups.length})
           </button>
         </div>
       )}

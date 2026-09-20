@@ -16,6 +16,7 @@ import {
   getActivityData,
 } from '@/hooks/useActivities';
 import { useTheme } from '@/hooks/useTheme';
+import { useLocale } from '@/hooks/useLocale';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { ContributionHeatmap } from '@/components/ContributionHeatmap';
@@ -53,6 +54,7 @@ function Dashboard() {
   const routeSectionRef = useRef<HTMLDivElement>(null);
   const activities = getActivityData() as Activity[];
   const { dark, toggle } = useTheme();
+  const { t } = useLocale();
   const [filter] = useState('all' as const);
   const [year, setYear] = useState<number | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
@@ -140,7 +142,7 @@ function Dashboard() {
             className="mx-auto min-h-[60vh] max-w-[1400px] p-6"
             role="status"
           >
-            Loading…
+            {t('loading')}
           </main>
         }
       >
