@@ -16,4 +16,4 @@ export interface Activity {
   streak: number;
 }
 
-export type SportFilter = 'all' | 'Run';
+export type SportFilter = 'all' | 'Run' | 'Ride' | 'cycling';

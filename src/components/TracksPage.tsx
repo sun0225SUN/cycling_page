@@ -7,11 +7,11 @@ import {
   getAvailableYears,
   formatDistance,
   parseMovingTime,
-  formatPace,
+  formatSpeed,
 } from '../hooks/useActivities';
 import { useLocale } from '../hooks/useLocale';
 
-type SportType = 'Run';
+type SportType = 'Run' | 'cycling' | 'Ride';
 const trackPlaceholders = Array.from({ length: 40 }, (_, id) => ({
   id,
   delay: id * 20,
@@ -105,6 +105,10 @@ function getColor(a: Activity): string {
     const km = a.distance / 1000;
     return km >= 20 ? '#ef4444' : '#f97316';
   }
+  if (a.type === 'Ride' || a.type === 'cycling') {
+    const km = a.distance / 1000;
+    return km >= 60 ? '#1d4ed8' : '#3b82f6';
+  }
   return '#4dd2ff';
 }
 
@@ -163,20 +167,20 @@ export function TracksPage({
     [base]
   );
 
-  const { totalDist, totalTime, avgPace } = useMemo(() => {
+  const { totalDist, totalTime, avgSpeed } = useMemo(() => {
     let totalDist = 0,
       totalTime = 0,
       speed = 0,
-      runs = 0;
+      rides = 0;
     for (const activity of base) {
       totalDist += activity.distance;
       totalTime += parseMovingTime(activity.moving_time);
-      if (activity.type === 'Run' && activity.average_speed > 0) {
+      if (activity.average_speed > 0) {
         speed += activity.average_speed;
-        runs++;
+        rides++;
       }
     }
-    return { totalDist, totalTime, avgPace: runs ? speed / runs : 0 };
+    return { totalDist, totalTime, avgSpeed: rides ? speed / rides : 0 };
   }, [base]);
 
   // Cluster tracks — defer heavy work
@@ -259,8 +263,14 @@ export function TracksPage({
     : 0;
   const selectedDurationLabel = `${Math.floor(selectedSeconds / 3600) ? Math.floor(selectedSeconds / 3600) + 'h ' : ''}${Math.floor((selectedSeconds % 3600) / 60)}m`;
 
+  const rideSport: SportType =
+    hasSport('cycling') || !hasSport('Ride') ? 'cycling' : 'Ride';
   const allSportTabs: { label: string; value: SportType; color: string }[] = [
-    { label: locale === 'zh' ? '跑步' : 'Run', value: 'Run', color: '#f97316' },
+    {
+      label: locale === 'zh' ? '骑行' : 'Ride',
+      value: rideSport,
+      color: '#3b82f6',
+    },
   ];
 
   return (
@@ -331,13 +341,16 @@ export function TracksPage({
                   {Math.floor((totalTime % 3600) / 60)}m
                 </p>
               </div>
-              {avgPace > 0 && (
+              {avgSpeed > 0 && (
                 <div>
                   <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
-                    {locale === 'zh' ? '均配速' : 'Avg Pace'}
+                    {locale === 'zh' ? '均速' : 'Avg Speed'}
                   </p>
                   <p className="font-mono text-lg font-bold">
-                    {formatPace(avgPace)}
+                    {formatSpeed(avgSpeed)}{' '}
+                    <span className="text-sm font-normal text-[var(--color-muted)]">
+                      km/h
+                    </span>
                   </p>
                 </div>
               )}
@@ -412,12 +425,12 @@ export function TracksPage({
                 {selectedActivity.average_speed > 0 && (
                   <div>
                     <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
-                      {locale === 'zh' ? '配速' : 'Pace'}
+                      {locale === 'zh' ? '速度' : 'Speed'}
                     </p>
                     <p className="font-mono text-base leading-tight font-bold">
-                      {formatPace(selectedActivity.average_speed)}{' '}
+                      {formatSpeed(selectedActivity.average_speed)}{' '}
                       <span className="text-[10px] font-normal text-[var(--color-muted)]">
-                        /km
+                        km/h
                       </span>
                     </p>
                   </div>
@@ -680,15 +693,17 @@ export function TracksPage({
             {/* Legend + sort */}
             {!clustering && clusteredTracks.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-muted)]">
-                {sportFilter === null || sportFilter === 'Run' ? (
+                {sportFilter === null ||
+                sportFilter === 'cycling' ||
+                sportFilter === 'Ride' ? (
                   <>
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-3 rounded bg-[#f97316]" />
-                      {locale === 'zh' ? '跑步' : 'Run'}
+                      <span className="inline-block h-0.5 w-3 rounded bg-[#3b82f6]" />
+                      {locale === 'zh' ? '骑行' : 'Ride'}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-3 rounded bg-[#ef4444]" />
-                      {locale === 'zh' ? '跑步 ≥20km' : 'Run ≥20km'}
+                      <span className="inline-block h-0.5 w-3 rounded bg-[#1d4ed8]" />
+                      {locale === 'zh' ? '骑行 ≥60km' : 'Ride ≥60km'}
                     </span>
                   </>
                 ) : null}

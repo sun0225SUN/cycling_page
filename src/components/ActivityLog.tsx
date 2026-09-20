@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Activity, SportFilter } from '../types';
-import { formatDuration, formatPace } from '../hooks/useActivities';
+import { sportLabel } from '../core/i18n';
+import { formatDuration, formatSpeed } from '../hooks/useActivities';
 import { useLocale } from '../hooks/useLocale';
 
 interface ActivityLogProps {
@@ -20,6 +21,9 @@ type DistanceFilter = 'all' | '10' | '20' | '40';
 function typeIcon(type: string): string {
   const icons: Record<string, string> = {
     Run: '🏃',
+    Ride: '🚴',
+    cycling: '🚴',
+    Cycling: '🚴',
   };
   return icons[type] ?? '📌';
 }
@@ -156,29 +160,25 @@ export function ActivityLog({
       </div>
 
       <p className="table-scroll-hint mb-2 text-xs text-[var(--color-muted)]">
-        {locale === 'zh'
-          ? '左右滑动查看更多数据，点击记录查看路线'
-          : 'Swipe for more details; select a run to view its route'}
+        {t('selectActivityHint')}
       </p>
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[520px] text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-muted)]">
               <th className="pb-3 font-medium">{t('date')}</th>
               <th className="pb-3 font-medium">{t('type')}</th>
-              <th className="pb-3 font-medium">{t('name')}</th>
               <th className="pb-3 font-medium">{t('distance')}</th>
               <th className="pb-3 font-medium">{t('duration')}</th>
               <th className="pb-3 font-medium">{t('pace')}</th>
-              <th className="pb-3 font-medium">{t('hr')}</th>
             </tr>
           </thead>
           <tbody>
             {!pageData.length && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={5}
                   className="py-10 text-center text-[var(--color-muted)]"
                 >
                   {locale === 'zh'
@@ -216,10 +216,9 @@ export function ActivityLog({
                 </td>
                 <td className="py-3">
                   <span className="text-[var(--color-muted)]">
-                    {typeIcon(a.type)} {a.type}
+                    {typeIcon(a.type)} {sportLabel(a.type, t)}
                   </span>
                 </td>
-                <td className="py-3">{a.name || t('run')}</td>
                 <td className="py-3 font-mono font-medium">
                   {(a.distance / 1000).toFixed(1)}
                   <span className="ml-1 text-xs font-normal text-[var(--color-muted)]">
@@ -230,10 +229,10 @@ export function ActivityLog({
                   {formatDuration(a.moving_time)}
                 </td>
                 <td className="py-3 text-[var(--color-muted)]">
-                  {formatPace(a.average_speed)}
-                </td>
-                <td className="py-3 text-[var(--color-muted)]">
-                  {a.average_heartrate ? Math.round(a.average_heartrate) : '--'}
+                  {formatSpeed(a.average_speed)}
+                  {a.average_speed > 0 ? (
+                    <span className="ml-1 text-xs">km/h</span>
+                  ) : null}
                 </td>
               </tr>
             ))}

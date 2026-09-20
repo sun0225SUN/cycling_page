@@ -22,7 +22,8 @@ interface HeatmapProps {
 // Map any activity type to the 4 display categories
 function toDisplayType(type: string): 'Run' | 'Ride' | 'Hike' | 'Training' {
   if (type === 'Run') return 'Run';
-  if (type === 'Ride') return 'Ride';
+  if (type === 'Ride' || type === 'cycling' || type === 'Cycling')
+    return 'Ride';
   if (type === 'Hike') return 'Hike';
   return 'Training';
 }
@@ -61,6 +62,8 @@ function typeLabel(type: string, locale: string): string {
   const map: Record<string, { zh: string; en: string }> = {
     Run: { zh: '跑步', en: 'Run' },
     Ride: { zh: '骑行', en: 'Ride' },
+    cycling: { zh: '骑行', en: 'Ride' },
+    Cycling: { zh: '骑行', en: 'Ride' },
     Hike: { zh: '徒步', en: 'Hike' },
     Training: { zh: '训练', en: 'Training' },
     WeightTraining: { zh: '力量训练', en: 'Weight Training' },
@@ -268,7 +271,9 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
         )
         .map((a) => toDisplayType(a.type))
     );
-    return (['Run', 'Training'] as const).filter((t) => types.has(t));
+    return (['Run', 'Ride', 'Hike', 'Training'] as const).filter((t) =>
+      types.has(t)
+    );
   }, [activities, selectedYear, isAll]);
 
   // Gym: monthly session breakdown
@@ -291,12 +296,7 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
     WaterSport: '#06b6d4',
   };
 
-  const heatmapTitle =
-    filter === 'Run'
-      ? locale === 'zh'
-        ? '跑步热力图'
-        : 'Run Heatmap'
-      : t('heatmapTitle');
+  const heatmapTitle = t('heatmapTitle');
 
   const handleSelectYear = (yr: number | 'all') => {
     setExportUrl('');

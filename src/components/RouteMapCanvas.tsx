@@ -123,6 +123,8 @@ export function RouteMapCanvas({
             '#f97316',
             'Ride',
             '#3b82f6',
+            'cycling',
+            '#3b82f6',
             '#4dd2ff',
           ],
         },
@@ -148,7 +150,7 @@ export function RouteMapCanvas({
       ...cameraRef.current,
       locale: zh
         ? {
-            'Map.Title': '跑步路线地图',
+            'Map.Title': '骑行路线地图',
             'NavigationControl.ZoomIn': '放大',
             'NavigationControl.ZoomOut': '缩小',
             'NavigationControl.ResetBearing': '恢复朝北',

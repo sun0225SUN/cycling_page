@@ -191,6 +191,12 @@ export function formatPace(speedMs: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
+/** Format m/s as km/h for cycling display. */
+export function formatSpeed(speedMs: number): string {
+  if (!speedMs) return '--';
+  return (speedMs * 3.6).toFixed(1);
+}
+
 export function formatDuration(timeStr: string): string {
   const secs = parseMovingTime(timeStr);
   const h = Math.floor(secs / 3600);

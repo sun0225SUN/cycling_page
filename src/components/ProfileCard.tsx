@@ -228,7 +228,7 @@ export const ProfileCard = memo(function ProfileCard({
           </p>
           <p className="text-sm font-medium">
             {latest.type === 'Run' ? '🏃 ' : '🚴 '}
-            {latest.name || (latest.type === 'Run' ? 'Run' : 'Ride')}
+            {latest.name || (latest.type === 'Run' ? t('run') : t('ride'))}
             <span className="font-normal text-[var(--color-muted)]">
               {' '}
               · {formatDistance(latest.distance)} km ·{' '}

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { Activity } from '../types';
+import { isRideType } from '../core/i18n';
 import { useLocale } from '../hooks/useLocale';
 import { parseMovingTime } from '../hooks/useActivities';
 
@@ -18,10 +19,10 @@ function formatTime(seconds: number): string {
 }
 
 const DISTANCES = [
-  { key: '5K', min: 4.8, max: 5.5 },
-  { key: '10K', min: 9.5, max: 11 },
-  { key: 'Half Marathon', min: 20, max: 22.5 },
-  { key: 'Marathon', min: 41, max: 44 },
+  { key: '40K', min: 38, max: 45 },
+  { key: '60K', min: 55, max: 70 },
+  { key: '80K', min: 75, max: 90 },
+  { key: '100K', min: 95, max: 110 },
 ];
 
 export const PersonalBest = memo(function PersonalBest({
@@ -30,35 +31,36 @@ export const PersonalBest = memo(function PersonalBest({
 }: PersonalBestProps) {
   const { locale } = useLocale();
 
-  // Only outdoor runs with valid GPS tracks (polyline must be substantial, not just a point)
-  const runs = activities.filter(
+  // Outdoor rides with a usable GPS track
+  const rides = activities.filter(
     (a) =>
-      a.type === 'Run' && a.summary_polyline && a.summary_polyline.length > 20
+      isRideType(a.type) && a.summary_polyline && a.summary_polyline.length > 20
   );
 
   const labels: Record<string, string> =
     locale === 'zh'
       ? {
-          '5K': '5公里',
-          '10K': '10公里',
-          'Half Marathon': '半程马拉松',
-          Marathon: '全程马拉松',
+          '40K': '40 公里',
+          '60K': '60 公里',
+          '80K': '80 公里',
+          '100K': '100 公里',
         }
       : {
-          '5K': '5K',
-          '10K': '10K',
-          'Half Marathon': 'Half Marathon',
-          Marathon: 'Marathon',
+          '40K': '40 km',
+          '60K': '60 km',
+          '80K': '80 km',
+          '100K': '100 km',
         };
 
   const bests = DISTANCES.map(({ key, min, max }) => {
-    const matching = runs.filter((a) => {
+    const matching = rides.filter((a) => {
       const km = a.distance / 1000;
       if (km < min || km > max) return false;
-      // Filter out GPS drift: pace must be reasonable (3:00/km ~ 8:00/km)
+      // Reasonable cycling speed: about 12–45 km/h
       const time = parseMovingTime(a.moving_time);
-      const pacePerKm = time / km; // seconds per km
-      return pacePerKm >= 180 && pacePerKm <= 480; // 3min/km to 8min/km
+      if (time <= 0) return false;
+      const speedKmh = km / (time / 3600);
+      return speedKmh >= 12 && speedKmh <= 45;
     });
     if (matching.length === 0) return { key, activity: null, time: 0 };
     const best = matching.reduce((b, a) => {

@@ -11,7 +11,7 @@ import {
 import type { Activity } from '../types';
 import { sportLabel } from '../core/i18n';
 import { useLocale } from '../hooks/useLocale';
-import { formatPace } from '../hooks/useActivities';
+import { formatSpeed } from '../hooks/useActivities';
 import {
   groupSummary,
   summaryKey,
@@ -50,7 +50,7 @@ function SummaryCard({
     ],
     [
       t('averagePace'),
-      stats.speed > 0 ? `${formatPace(stats.speed)} /km` : '—',
+      stats.speed > 0 ? `${formatSpeed(stats.speed)} km/h` : '—',
     ],
     [
       t('averageHeartRate'),
@@ -59,12 +59,9 @@ function SummaryCard({
     [t('longestActivity'), `${number(stats.maxDistance / 1000)} km`],
     [
       t('fastestPace'),
-      stats.maxSpeed > 0 ? `${formatPace(stats.maxSpeed)} /km` : '—',
+      stats.maxSpeed > 0 ? `${formatSpeed(stats.maxSpeed)} km/h` : '—',
     ],
-    [
-      t('averageDistance'),
-      `${number(stats.distance / stats.count / 1000)} km`,
-    ],
+    [t('averageDistance'), `${number(stats.distance / stats.count / 1000)} km`],
     [t('elevationGain'), `${number(stats.elevation)} m`],
   ];
   const chartUnit =

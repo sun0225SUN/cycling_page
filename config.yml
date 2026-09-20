@@ -1,4 +1,4 @@
-# Running Page 3.0 配置文件
+# Cycling Page 配置文件（由 Running Page 3.0 改造）
 # 修改此文件即可完成个性化设置，无需改动源代码。
 
 # ── 地图 ──────────────────────────────────────────────────────────────────────
@@ -36,8 +36,14 @@ goals:
     weekly: 35
     unit: distance
 
-  Run:
-    yearly: 2000
-    monthly: 150
-    weekly: 35
+  cycling:
+    yearly: 5000
+    monthly: 400
+    weekly: 100
+    unit: distance
+
+  Ride:
+    yearly: 5000
+    monthly: 400
+    weekly: 100
     unit: distance
