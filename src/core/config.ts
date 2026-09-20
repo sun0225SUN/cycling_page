@@ -37,4 +37,5 @@ export const DEFAULT_GOAL: GoalConfig = GOALS.all ?? {
 };
 export const AVATAR: string = config.avatar ?? '';
 export const MAPBOX_TOKEN: string =
-  import.meta.env.VITE_MAPBOX_TOKEN || config.mapbox_token || '';
+  String(import.meta.env.VITE_MAPBOX_TOKEN ?? '').trim() ||
+  String(config.mapbox_token ?? '').trim();

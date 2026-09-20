@@ -4,10 +4,8 @@
 # ── 地图 ──────────────────────────────────────────────────────────────────────
 
 # Mapbox public access token（https://account.mapbox.com）
-# Migrated from src/themes/classic/utils/const.ts
-# For security, this token is managed via GitHub Actions secret (MAPBOX_TOKEN)
-# Users should replace with their own token in GitHub Actions secrets
-# See https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions
+# Prefer setting VITE_MAPBOX_TOKEN in the deploy environment (e.g. Vercel).
+# This field is only a local/fallback override.
 mapbox_token: ''
 
 # ── 外观 ─────────────────────────────────────────────────────────────────────

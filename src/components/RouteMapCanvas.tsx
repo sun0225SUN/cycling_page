@@ -14,6 +14,8 @@ export interface RouteMapProps {
   onClearSelection?: () => void;
 }
 
+type BasemapProvider = 'mapbox' | 'openfreemap' | 'carto';
+
 const routeCache = new WeakMap<
   Activity,
   {
@@ -22,6 +24,61 @@ const routeCache = new WeakMap<
     geometry: { type: 'LineString'; coordinates: number[][] };
   }[]
 >();
+
+function preferredProvider(): BasemapProvider {
+  return MAPBOX_TOKEN ? 'mapbox' : 'openfreemap';
+}
+
+function nextFallback(provider: BasemapProvider): BasemapProvider | null {
+  if (provider === 'mapbox') return 'openfreemap';
+  if (provider === 'openfreemap') return 'carto';
+  return null;
+}
+
+function styleForProvider(
+  provider: BasemapProvider,
+  dark: boolean | undefined
+): string {
+  const isLight = dark === false;
+  if (provider === 'mapbox') {
+    return `mapbox://styles/mapbox/${isLight ? 'light' : 'dark'}-v11`;
+  }
+  if (provider === 'openfreemap') {
+    return isLight
+      ? 'https://tiles.openfreemap.org/styles/bright'
+      : 'https://tiles.openfreemap.org/styles/dark';
+  }
+  return `https://basemaps.cartocdn.com/gl/${isLight ? 'positron' : 'dark-matter'}-gl-style/style.json`;
+}
+
+function isAuthError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as {
+    status?: number;
+    statusCode?: number;
+    message?: string;
+  };
+  const status = err.status ?? err.statusCode;
+  if (status === 401 || status === 403) return true;
+  const message = String(err.message ?? error);
+  return /401|403|unauthorized|not authorized|invalid.*token/i.test(message);
+}
+
+function isFatalStyleError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { status?: number; message?: string; error?: string };
+  const message = String(err.message ?? err.error ?? error);
+  // Ignore routine tile 404s; only treat style bootstrap failures as fatal.
+  if (
+    /Failed to fetch|AJAXError|Could not load style|Error loading style/i.test(
+      message
+    )
+  ) {
+    return true;
+  }
+  const status = err.status;
+  return typeof status === 'number' && status >= 400 && status !== 404;
+}
 
 export function RouteMapCanvas({
   activities,
@@ -37,15 +94,14 @@ export function RouteMapCanvas({
   const styleReadyRef = useRef(false);
   const cameraRef = useRef<mapboxgl.CameraOptions | null>(null);
   const fittedRef = useRef<unknown>(null);
-  const [provider, setProvider] = useState(MAPBOX_TOKEN ? 'mapbox' : 'carto');
+  const [provider, setProvider] = useState<BasemapProvider>(() =>
+    preferredProvider()
+  );
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading'
   );
   const [retry, setRetry] = useState(0);
-  const style =
-    provider === 'mapbox'
-      ? `mapbox://styles/mapbox/${dark === false ? 'light' : 'dark'}-v11`
-      : `https://basemaps.cartocdn.com/gl/${dark === false ? 'positron' : 'dark-matter'}-gl-style/style.json`;
+  const style = styleForProvider(provider, dark);
 
   const routes = useMemo(() => {
     const items = selectedActivity ? [selectedActivity] : activities;
@@ -140,9 +196,12 @@ export function RouteMapCanvas({
 
   useEffect(() => {
     if (!containerRef.current || !panelRef.current) return;
+    if (MAPBOX_TOKEN) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+    }
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      accessToken: MAPBOX_TOKEN,
+      accessToken: MAPBOX_TOKEN || 'not-needed-for-public-styles',
       language: zh ? 'zh-Hans' : 'en',
       style: { version: 8, sources: {}, layers: [] },
       center: [121.4, 31.2],
@@ -188,20 +247,37 @@ export function RouteMapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    let cancelled = false;
     let failed = false;
+
+    const failOrFallback = () => {
+      if (cancelled || failed) return;
+      const fallback = nextFallback(provider);
+      if (fallback) {
+        setProvider(fallback);
+        return;
+      }
+      failed = true;
+      setStatus('error');
+    };
+
     const onError = (event: mapboxgl.ErrorEvent) => {
-      const code = (event.error as Error & { status?: number }).status;
-      if (provider === 'mapbox' && (code === 401 || code === 403)) {
-        setProvider('carto');
-      } else {
-        failed = true;
-        setStatus('error');
+      if (cancelled) return;
+      if (provider === 'mapbox' && isAuthError(event.error)) {
+        setProvider('openfreemap');
+        return;
+      }
+      if (isFatalStyleError(event.error) && !map.isStyleLoaded()) {
+        failOrFallback();
       }
     };
     const onIdle = () => {
-      if (!failed) setStatus('ready');
+      if (!cancelled && !failed && map.isStyleLoaded()) setStatus('ready');
     };
-    const onLoading = () => setStatus('loading');
+    const onLoading = () => {
+      if (!cancelled) setStatus('loading');
+    };
+
     map.on('error', onError);
     map.on('idle', onIdle);
     map.once('styledataloading', onLoading);
@@ -212,9 +288,11 @@ export function RouteMapCanvas({
       localIdeographFontFamily: 'sans-serif',
     });
     const timer = window.setTimeout(() => {
-      if (!map.isStyleLoaded()) setStatus('error');
-    }, 15000);
+      if (!cancelled && !map.isStyleLoaded()) failOrFallback();
+    }, 12000);
+
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
       map.off('error', onError);
       map.off('idle', onIdle);
@@ -227,6 +305,7 @@ export function RouteMapCanvas({
     if (!map) return;
     const onStyleLoad = () => {
       styleReadyRef.current = true;
+      setStatus('ready');
       drawRoutes();
     };
     map.on('style.load', onStyleLoad);
@@ -256,6 +335,34 @@ export function RouteMapCanvas({
       document.removeEventListener('fullscreenchange', onFullscreen);
     };
   }, [fitRoutes]);
+
+  const providerLabel =
+    provider === 'mapbox'
+      ? zh
+        ? '底图 · Mapbox'
+        : 'Basemap · Mapbox'
+      : provider === 'openfreemap'
+        ? zh
+          ? '备用底图 · OpenFreeMap'
+          : 'Alternative basemap · OpenFreeMap'
+        : zh
+          ? '备用底图 · CARTO'
+          : 'Alternative basemap · CARTO';
+
+  const statusText =
+    status === 'error'
+      ? zh
+        ? MAPBOX_TOKEN
+          ? '底图加载失败，请重试'
+          : '底图加载失败。请在 Vercel 配置环境变量 VITE_MAPBOX_TOKEN'
+        : MAPBOX_TOKEN
+          ? 'Basemap failed to load'
+          : 'Basemap failed. Set VITE_MAPBOX_TOKEN in Vercel env'
+      : status === 'loading'
+        ? zh
+          ? '正在加载地图…'
+          : 'Loading map…'
+        : providerLabel;
 
   return (
     <section
@@ -304,34 +411,38 @@ export function RouteMapCanvas({
               : 'No GPS route available'}
           </div>
         )}
+        {status === 'error' && (
+          <div className="route-map-empty" role="alert">
+            <div className="max-w-sm px-4 text-center">
+              <p className="font-medium text-[var(--color-text)]">
+                {zh ? '加载失败' : 'Load failed'}
+              </p>
+              <p className="mt-2 text-[var(--color-muted)]">
+                {MAPBOX_TOKEN
+                  ? zh
+                    ? 'Mapbox / 备用底图都未能加载，请点击重试。'
+                    : 'Mapbox and fallback basemaps failed to load. Please retry.'
+                  : zh
+                    ? '未检测到 Mapbox token（请在 Vercel 设置 VITE_MAPBOX_TOKEN），备用底图也加载失败。'
+                    : 'No Mapbox token detected (set VITE_MAPBOX_TOKEN in Vercel). Fallback basemap also failed.'}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
       <div className="route-map-footer">
         <span role="status" aria-live="polite">
-          {status === 'error'
-            ? zh
-              ? '底图加载失败，请重试'
-              : 'Basemap failed to load'
-            : status === 'loading'
-              ? zh
-                ? '正在加载地图…'
-                : 'Loading map…'
-              : provider === 'carto'
-                ? zh
-                  ? '备用底图 · CARTO'
-                  : 'Alternative basemap · CARTO'
-                : zh
-                  ? '底图 · Mapbox'
-                  : 'Basemap · Mapbox'}
+          {statusText}
         </span>
-        {(status === 'error' || (provider === 'carto' && !!MAPBOX_TOKEN)) && (
+        {(status === 'error' || (provider !== 'mapbox' && !!MAPBOX_TOKEN)) && (
           <button
             className="route-map-action"
             onClick={() => {
-              setProvider(MAPBOX_TOKEN ? 'mapbox' : 'carto');
+              setProvider(preferredProvider());
               setRetry((value) => value + 1);
             }}
           >
-            {provider === 'carto' && MAPBOX_TOKEN
+            {provider !== 'mapbox' && MAPBOX_TOKEN
               ? zh
                 ? '重试 Mapbox'
                 : 'Retry Mapbox'
