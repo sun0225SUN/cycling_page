@@ -15,6 +15,23 @@
             window.history.pushState(null, '', redirect);
           }
         }
+
+        // Apply theme before first paint to avoid light→dark flash.
+        // Default matches config.yml theme: dark when nothing is stored.
+        try {
+          const stored = localStorage.getItem('theme');
+          const dark =
+            stored === 'dark' ||
+            (stored !== 'light' &&
+              (stored === 'system'
+                ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                : true));
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
       })();
     </script>
     <link rel="icon" type="image/png" href="%BASE_URL%/images/favicon.png" />
@@ -26,6 +43,17 @@
         margin: 0;
         min-height: 100%;
         background: #171717;
+        color: #ededed;
+      }
+      html.dark,
+      html.dark body {
+        background: #171717;
+        color: #ededed;
+      }
+      html:not(.dark),
+      html:not(.dark) body {
+        background: #f5f5f5;
+        color: #1f2328;
       }
     </style>
   </head>
