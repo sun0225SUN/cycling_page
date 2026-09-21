@@ -16,46 +16,43 @@
           }
         }
 
-        // Apply theme before first paint to avoid light→dark flash.
-        // Default matches config.yml theme: dark when nothing is stored.
+        // Apply theme before first paint (mirrors src/core/theme.tsx).
         try {
-          const stored = localStorage.getItem('theme');
-          const dark =
-            stored === 'dark' ||
-            (stored !== 'light' &&
-              (stored === 'system'
-                ? window.matchMedia('(prefers-color-scheme: dark)').matches
-                : true));
-          document.documentElement.classList.toggle('dark', dark);
-          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+          var theme = localStorage.getItem('theme') || 'dark';
+          if (theme !== 'light' && theme !== 'dark') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          }
+          var root = document.documentElement;
+          root.classList.remove('light', 'dark');
+          root.classList.add(theme);
+          root.setAttribute('data-theme', theme);
+          root.style.colorScheme = theme;
         } catch (e) {
           document.documentElement.classList.add('dark');
-          document.documentElement.style.colorScheme = 'dark';
+          document.documentElement.setAttribute('data-theme', 'dark');
         }
       })();
     </script>
-    <link rel="icon" type="image/png" href="%BASE_URL%/images/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cycling Page</title>
     <style>
+      :root {
+        --boot-bg: #171717;
+      }
+      html.light,
+      html[data-theme='light'] {
+        --boot-bg: #f5f5f5;
+      }
       html,
       body {
         margin: 0;
         min-height: 100%;
-        background: #171717;
-        color: #ededed;
-      }
-      html.dark,
-      html.dark body {
-        background: #171717;
-        color: #ededed;
-      }
-      html:not(.dark),
-      html:not(.dark) body {
-        background: #f5f5f5;
-        color: #1f2328;
+        background: var(--boot-bg);
       }
     </style>
+    <link rel="icon" type="image/png" href="%BASE_URL%/images/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cycling Page</title>
   </head>
   <body>
     <div id="root"></div>

@@ -139,7 +139,7 @@ function Dashboard() {
       <Suspense
         fallback={
           <main
-            className="mx-auto min-h-[60vh] max-w-[1400px] p-6"
+            className="mx-auto flex min-h-[60vh] max-w-[1400px] items-center justify-center p-6 text-sm text-[var(--color-muted)]"
             role="status"
           >
             {t('loading')}

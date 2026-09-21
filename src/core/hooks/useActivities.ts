@@ -237,13 +237,6 @@ const loadActivityData = () => {
   return activityDataPromise;
 };
 
-/** Kick off activities.json fetch before the first Suspense render. */
-export const prefetchActivityData = () => {
-  void loadActivityData().catch(() => {
-    /* ErrorBoundary / getActivityData will surface failures. */
-  });
-};
-
 export const getActivityData = () => {
   if (activityDataError) throw activityDataError;
   if (activityDataCache) return activityDataCache;

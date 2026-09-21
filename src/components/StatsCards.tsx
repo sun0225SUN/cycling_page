@@ -329,7 +329,7 @@ export const StatsCards = memo(function StatsCards({
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-[1fr_1fr_1fr_1.6fr]">
       {/* Yearly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 transition-all duration-300 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -396,7 +396,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Monthly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 transition-all duration-300 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -463,7 +463,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Weekly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 transition-all duration-300 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -527,7 +527,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Streak */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 transition-all duration-300 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
