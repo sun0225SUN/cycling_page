@@ -36,6 +36,8 @@ export const DEFAULT_GOAL: GoalConfig = GOALS.all ?? {
   unit: 'distance',
 };
 export const AVATAR: string = config.avatar ?? '';
+// Build/runtime token: set VITE_MAPBOX_TOKEN in the deploy env (Vercel / GH Actions).
+// config.yml mapbox_token is only a local fallback.
 export const MAPBOX_TOKEN: string =
   String(import.meta.env.VITE_MAPBOX_TOKEN ?? '').trim() ||
   String(config.mapbox_token ?? '').trim();

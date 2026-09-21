@@ -80,6 +80,19 @@ function isFatalStyleError(error: unknown): boolean {
   return typeof status === 'number' && status >= 400 && status !== 404;
 }
 
+/** Classic MAIN_COLOR in dark; dashboard blue in light. Read from CSS so theme swaps stay in sync. */
+function readRouteColor(dark?: boolean): string {
+  if (typeof window !== 'undefined') {
+    const fromCss = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-all')
+      .trim();
+    if (fromCss) return fromCss;
+  }
+  return dark === false ? '#0071e3' : 'rgb(224, 237, 94)';
+}
+
+const NO_TRANSITION = { duration: 0, delay: 0 } as const;
+
 export function RouteMapCanvas({
   activities,
   selectedActivity,
@@ -94,6 +107,8 @@ export function RouteMapCanvas({
   const styleReadyRef = useRef(false);
   const cameraRef = useRef<mapboxgl.CameraOptions | null>(null);
   const fittedRef = useRef<unknown>(null);
+  const appliedStyleKeyRef = useRef<string | null>(null);
+  const hasBeenReadyRef = useRef(false);
   const [provider, setProvider] = useState<BasemapProvider>(() =>
     preferredProvider()
   );
@@ -102,6 +117,8 @@ export function RouteMapCanvas({
   );
   const [retry, setRetry] = useState(0);
   const style = styleForProvider(provider, dark);
+  const bootstrapStyleRef = useRef(style);
+  const bootstrapProviderRef = useRef(provider);
 
   const routes = useMemo(() => {
     const items = selectedActivity ? [selectedActivity] : activities;
@@ -157,37 +174,42 @@ export function RouteMapCanvas({
     });
   }, [routeBounds, selectedActivity]);
 
+  const markReady = useCallback(() => {
+    styleReadyRef.current = true;
+    hasBeenReadyRef.current = true;
+    setStatus('ready');
+  }, []);
+
   const drawRoutes = useCallback(() => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
+    // Color comes from CSS vars after the theme class flips; do not depend on
+    // `dark` here or we repaint the old basemap and trigger Mapbox transitions.
+    const routeColor = readRouteColor();
     const data = { type: 'FeatureCollection' as const, features: routes };
     const source = map.getSource('routes') as
       mapboxgl.GeoJSONSource | undefined;
-    if (source) source.setData(data);
-    else {
+    if (source) {
+      source.setData(data);
+      // Re-add the layer so theme color swaps are instant (no paint transition).
+      if (map.getLayer('routes')) map.removeLayer('routes');
+    } else {
       map.addSource('routes', { type: 'geojson', data });
-      map.addLayer({
-        id: 'routes',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': [
-            'match',
-            ['get', 'type'],
-            'Run',
-            '#f97316',
-            'Ride',
-            '#3b82f6',
-            'cycling',
-            '#3b82f6',
-            '#4dd2ff',
-          ],
-        },
-      });
     }
-    map.setPaintProperty('routes', 'line-width', selectedActivity ? 3.5 : 2);
-    map.setPaintProperty('routes', 'line-opacity', selectedActivity ? 1 : 0.7);
+    map.addLayer({
+      id: 'routes',
+      type: 'line',
+      source: 'routes',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': routeColor,
+        'line-width': selectedActivity ? 3.5 : 2,
+        'line-opacity': selectedActivity ? 1 : 0.7,
+        'line-color-transition': NO_TRANSITION,
+        'line-width-transition': NO_TRANSITION,
+        'line-opacity-transition': NO_TRANSITION,
+      },
+    });
     if (fittedRef.current !== routes) {
       fittedRef.current = routes;
       fitRoutes();
@@ -199,13 +221,17 @@ export function RouteMapCanvas({
     if (MAPBOX_TOKEN) {
       mapboxgl.accessToken = MAPBOX_TOKEN;
     }
+    // Start with the real style — empty style + setStyle flashes a white GL clear.
+    const bootstrapStyle = bootstrapStyleRef.current;
+    const bootstrapProvider = bootstrapProviderRef.current;
     const map = new mapboxgl.Map({
       container: containerRef.current,
       accessToken: MAPBOX_TOKEN || 'not-needed-for-public-styles',
       language: zh ? 'zh-Hans' : 'en',
-      style: { version: 8, sources: {}, layers: [] },
+      style: bootstrapStyle,
       center: [121.4, 31.2],
       zoom: 10,
+      fadeDuration: 0,
       ...cameraRef.current,
       locale: zh
         ? {
@@ -220,6 +246,7 @@ export function RouteMapCanvas({
         : {},
     });
     mapRef.current = map;
+    appliedStyleKeyRef.current = `${bootstrapProvider}::${bootstrapStyle}::0`;
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     map.addControl(
       new mapboxgl.FullscreenControl({ container: panelRef.current }),
@@ -241,6 +268,9 @@ export function RouteMapCanvas({
       observer.disconnect();
       map.remove();
       mapRef.current = null;
+      appliedStyleKeyRef.current = null;
+      styleReadyRef.current = false;
+      hasBeenReadyRef.current = false;
     };
   }, [zh]);
 
@@ -249,6 +279,7 @@ export function RouteMapCanvas({
     if (!map) return;
     let cancelled = false;
     let failed = false;
+    const styleKey = `${provider}::${style}::${retry}`;
 
     const failOrFallback = () => {
       if (cancelled || failed) return;
@@ -272,21 +303,30 @@ export function RouteMapCanvas({
       }
     };
     const onIdle = () => {
-      if (!cancelled && !failed && map.isStyleLoaded()) setStatus('ready');
-    };
-    const onLoading = () => {
-      if (!cancelled) setStatus('loading');
+      if (!cancelled && !failed && map.isStyleLoaded()) markReady();
     };
 
     map.on('error', onError);
     map.on('idle', onIdle);
-    map.once('styledataloading', onLoading);
-    styleReadyRef.current = false;
-    map.setStyle(style, {
-      diff: false,
-      localFontFamily: undefined,
-      localIdeographFontFamily: 'sans-serif',
-    });
+
+    // Avoid re-setStyle on the bootstrap style — that white-flashes the GL canvas.
+    if (appliedStyleKeyRef.current !== styleKey) {
+      appliedStyleKeyRef.current = styleKey;
+      styleReadyRef.current = false;
+      // Keep the previous frame visible on theme swaps; only block UI on first load.
+      if (!hasBeenReadyRef.current) setStatus('loading');
+      map.setStyle(style, {
+        diff: false,
+        localFontFamily: undefined,
+        localIdeographFontFamily: 'sans-serif',
+      });
+    } else if (map.isStyleLoaded()) {
+      // Constructor style finished before this effect attached listeners.
+      queueMicrotask(() => {
+        if (!cancelled) markReady();
+      });
+    }
+
     const timer = window.setTimeout(() => {
       if (!cancelled && !map.isStyleLoaded()) failOrFallback();
     }, 12000);
@@ -296,24 +336,32 @@ export function RouteMapCanvas({
       window.clearTimeout(timer);
       map.off('error', onError);
       map.off('idle', onIdle);
-      map.off('styledataloading', onLoading);
     };
-  }, [style, provider, retry, zh]);
+  }, [style, provider, retry, zh, markReady]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    let cancelled = false;
     const onStyleLoad = () => {
-      styleReadyRef.current = true;
-      setStatus('ready');
+      if (cancelled) return;
+      markReady();
       drawRoutes();
     };
     map.on('style.load', onStyleLoad);
-    drawRoutes();
+    // Bootstrap / already-loaded style: style.load may have fired already.
+    if (map.isStyleLoaded()) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        markReady();
+        drawRoutes();
+      });
+    }
     return () => {
+      cancelled = true;
       map.off('style.load', onStyleLoad);
     };
-  }, [drawRoutes, style, retry, zh]);
+  }, [drawRoutes, style, retry, zh, markReady]);
 
   useEffect(() => {
     let wasFullscreen = document.fullscreenElement === panelRef.current;
@@ -367,7 +415,7 @@ export function RouteMapCanvas({
   return (
     <section
       ref={panelRef}
-      className="route-map"
+      className="route-map bento-card"
       aria-label={zh ? '路线地图' : 'Route map'}
     >
       <div className="route-map-header">
@@ -400,9 +448,19 @@ export function RouteMapCanvas({
           </button>
         </div>
       </div>
-      <div className="route-map-body">
+      <div
+        className={`route-map-body${dark ? ' route-map-body-dark' : ''}`}
+      >
         <div ref={containerRef} className="h-full w-full" />
-        {!routes.length && (
+        {status === 'loading' && (
+          <div className="route-map-loading" role="status" aria-live="polite">
+            <span className="route-map-spinner" aria-hidden="true" />
+            <span className="route-map-loading-label">
+              {zh ? '正在加载地图…' : 'Loading map…'}
+            </span>
+          </div>
+        )}
+        {!routes.length && status !== 'loading' && (
           <div className="route-map-empty" role="status">
             {zh
               ? selectedActivity

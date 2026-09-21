@@ -1,21 +1,27 @@
 import * as polyline from '@mapbox/polyline';
 
-interface Track {
+export type ClusterableTrack = {
   summary_polyline: string;
   start_date_local: string;
   distance: number;
-}
+};
 
-self.onmessage = ({ data }: MessageEvent<Track[]>) => {
-  // Keep original indices so the page can resolve each representative activity.
-  const tracks = data
+/**
+ * Collapse near-duplicate routes (same start/end/distance bucket).
+ * Fast enough to run synchronously for typical track-wall sizes.
+ */
+export function clusterTracks<T extends ClusterableTrack>(
+  tracks: T[]
+): { index: number; count: number }[] {
+  const ordered = tracks
     .map((track, index) => ({ ...track, index }))
     .sort(
       (a, b) =>
         new Date(b.start_date_local).getTime() -
         new Date(a.start_date_local).getTime()
     );
-  const decoded = tracks.map((track) => {
+
+  const decoded = ordered.map((track) => {
     try {
       const coords = polyline.decode(track.summary_polyline);
       if (coords.length < 2) return null;
@@ -31,12 +37,12 @@ self.onmessage = ({ data }: MessageEvent<Track[]>) => {
 
   const clusters: { index: number; count: number }[] = [];
   const used = new Set<number>();
-  for (let i = 0; i < tracks.length; i++) {
+  for (let i = 0; i < ordered.length; i++) {
     if (used.has(i)) continue;
     const current = decoded[i];
     if (!current) continue;
     let count = 1;
-    for (let j = i + 1; j < tracks.length; j++) {
+    for (let j = i + 1; j < ordered.length; j++) {
       if (used.has(j)) continue;
       const candidate = decoded[j];
       if (!candidate || current.distBucket !== candidate.distBucket) continue;
@@ -52,7 +58,7 @@ self.onmessage = ({ data }: MessageEvent<Track[]>) => {
       }
     }
     used.add(i);
-    clusters.push({ index: tracks[i].index, count });
+    clusters.push({ index: ordered[i].index, count });
   }
-  self.postMessage(clusters);
-};
+  return clusters;
+}

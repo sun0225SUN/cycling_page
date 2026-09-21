@@ -304,11 +304,8 @@ export const StatsCards = memo(function StatsCards({
 
   function dayColor(acts: Activity[]): string {
     if (acts.length === 0) return '';
-    const sorted = [...acts].sort((a, b) => b.distance - a.distance);
-    const type = sorted[0].type;
-    if (type === 'Run') return '#f97316';
-    if (type === 'Ride' || type === 'cycling') return '#3b82f6';
-    return 'var(--color-text)';
+    // Follow dashboard theme accent: blue in light, classic yellow in dark.
+    return 'var(--color-all)';
   }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -327,9 +324,9 @@ export const StatsCards = memo(function StatsCards({
   });
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-[1fr_1fr_1fr_1.6fr]">
+    <div className="bento-stats-grid">
       {/* Yearly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="bento-card">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -346,7 +343,7 @@ export const StatsCards = memo(function StatsCards({
           </svg>
           {t('yearlyGoal')}
         </p>
-        <p className="font-mono text-3xl font-bold whitespace-nowrap">
+        <p className="bento-num text-[28px] whitespace-nowrap text-[var(--color-accent)] sm:text-[32px]">
           {goal.unit === 'time'
             ? formatHours(yearSeconds)
             : formatDistance(yearDistance)}
@@ -396,7 +393,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Monthly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="bento-card">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -413,7 +410,7 @@ export const StatsCards = memo(function StatsCards({
           </svg>
           {t('monthlyGoal')}
         </p>
-        <p className="font-mono text-3xl font-bold whitespace-nowrap">
+        <p className="bento-num text-[28px] whitespace-nowrap text-[var(--color-accent)] sm:text-[32px]">
           {goal.unit === 'time'
             ? formatHours(monthSeconds)
             : formatDistance(monthDistance)}
@@ -463,7 +460,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Weekly Goal */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="bento-card">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -480,7 +477,7 @@ export const StatsCards = memo(function StatsCards({
           </svg>
           {locale === 'zh' ? '周目标' : 'WEEKLY GOAL'}
         </p>
-        <p className="font-mono text-3xl font-bold whitespace-nowrap">
+        <p className="bento-num text-[28px] whitespace-nowrap text-[var(--color-accent)] sm:text-[32px]">
           {goal.unit === 'time'
             ? formatHours(weekSeconds)
             : formatDistance(weekDistance)}
@@ -527,7 +524,7 @@ export const StatsCards = memo(function StatsCards({
       </div>
 
       {/* Streak */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+      <div className="bento-card">
         <p className="mb-2 flex items-center gap-1.5 text-xs tracking-wider text-[var(--color-muted)] uppercase">
           <svg
             className="h-3.5 w-3.5"
@@ -550,7 +547,7 @@ export const StatsCards = memo(function StatsCards({
           {t('streak')}
         </p>
         <div className="flex items-baseline gap-3">
-          <p className="font-mono text-3xl font-bold">
+          <p className="bento-num text-[28px] text-[var(--color-all)] sm:text-[32px]">
             {currentStreak}
             <span className="ml-1 text-base font-normal text-[var(--color-muted)]">
               {t('days')}
@@ -560,17 +557,17 @@ export const StatsCards = memo(function StatsCards({
 
         {/* Week days visual */}
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex items-center gap-3">
           <div className="flex shrink-0 flex-col items-center gap-0">
             <div className="relative h-9 w-9">
               <svg
-                className="h-9 w-9 text-[#f97316]"
+                className="h-9 w-9 text-[var(--color-run)]"
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
                 <path d="M12 23c-3.866 0-7-3.134-7-7 0-2.468 1.5-5.093 3.03-6.97.44-.54 1.47-.36 1.64.3.17.66.54 1.44 1.13 2.07.26-.94.76-2.06 1.57-3.04.81-.98 1.49-2.09 1.78-3.36.12-.53.71-.78 1.15-.46C17.09 6.46 19 9.58 19 13.5c0 5.247-3.134 9.5-7 9.5z" />
               </svg>
-              <span className="absolute right-0 bottom-[18%] left-0 flex items-center justify-center text-[9px] leading-none font-bold text-white">
+              <span className="absolute right-0 bottom-[18%] left-0 flex items-center justify-center text-[9px] leading-none font-bold text-white dark:text-[#111]">
                 {currentWeekStreak}
               </span>
             </div>
@@ -578,20 +575,25 @@ export const StatsCards = memo(function StatsCards({
               {t('weeks')}
             </span>
           </div>
-          <div className="flex flex-1 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
             {weekDays.map((wd, i) => {
               const isPast =
                 new Date(visualWeekStart.getTime() + i * 86400000) <= now;
               const color = dayColor(wd.acts);
+              const todayRing =
+                'ring-1 ring-[color-mix(in_srgb,var(--color-accent)_55%,transparent)] ring-offset-1 ring-offset-[var(--color-card)]';
               return (
                 <div
                   key={wd.key}
                   role={wd.hasActivity ? 'button' : undefined}
                   tabIndex={wd.hasActivity ? 0 : undefined}
+                  aria-current={wd.isToday ? 'date' : undefined}
                   aria-label={
                     wd.hasActivity
                       ? `${wd.key} · ${wd.acts.length} ${t('calendarActivities')}`
-                      : undefined
+                      : wd.isToday
+                        ? wd.key
+                        : undefined
                   }
                   onKeyDown={(event) => {
                     if (
@@ -607,15 +609,17 @@ export const StatsCards = memo(function StatsCards({
                     if (wd.acts.length > 0) onSelectActivity(wd.acts[0]);
                   }}
                 >
-                  <span className="text-[9px] text-[var(--color-muted)]">
+                  <span
+                    className={`text-[10px] ${wd.isToday ? 'font-medium text-[color-mix(in_srgb,var(--color-accent)_75%,var(--color-muted))]' : 'text-[var(--color-muted)]'}`}
+                  >
                     {weekLabels[i]}
                   </span>
                   <div
                     className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium transition-opacity ${
                       wd.hasActivity
-                        ? 'text-white hover:opacity-70'
+                        ? `text-[var(--color-on-all)] hover:opacity-80 ${wd.isToday ? todayRing : ''}`
                         : wd.isToday
-                          ? 'text-[var(--color-text)] ring-1 ring-[var(--color-text)]'
+                          ? `bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] text-[color-mix(in_srgb,var(--color-accent)_80%,var(--color-text))] ${todayRing}`
                           : isPast
                             ? 'bg-[var(--color-border)] text-[var(--color-muted)]'
                             : 'text-[var(--color-muted)]'

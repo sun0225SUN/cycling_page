@@ -29,7 +29,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     showing: '显示',
     of: '/',
     home: '首页',
-    tracks: '轨迹墙',
+    tracks: '轨迹',
     summary: '汇总',
     summarySubtitle: '按时间回看每一段骑行历程。',
     sport: '运动类型',

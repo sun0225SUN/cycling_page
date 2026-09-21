@@ -54,7 +54,7 @@ function Dashboard() {
   const routeSectionRef = useRef<HTMLDivElement>(null);
   const activities = getActivityData() as Activity[];
   const { dark, toggle } = useTheme();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [filter] = useState('all' as const);
   const [year, setYear] = useState<number | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
@@ -139,7 +139,7 @@ function Dashboard() {
       <Suspense
         fallback={
           <main
-            className="mx-auto flex min-h-[60vh] max-w-[1400px] items-center justify-center p-6 text-sm text-[var(--color-muted)]"
+            className="mx-auto flex min-h-[60vh] max-w-[1400px] items-center justify-center bg-[var(--color-bg)] p-6 text-sm text-[var(--color-muted)]"
             role="status"
           >
             {t('loading')}
@@ -148,6 +148,7 @@ function Dashboard() {
       >
         {page === 'summary' ? (
           <SummaryPage
+            key={locale}
             activities={activities}
             onSelectActivity={(activity) => {
               navigate('home');
@@ -157,6 +158,7 @@ function Dashboard() {
           />
         ) : page === 'tracks' ? (
           <TracksPage
+            key={locale}
             activities={activities}
             dark={dark}
             filter={filter}
@@ -167,10 +169,11 @@ function Dashboard() {
             }}
           />
         ) : (
-          <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]">
-              {/* Left column */}
-              <div className="min-w-0 space-y-6 overflow-hidden">
+          <main className="bento-page">
+            {/* Remount on locale change to avoid stale flex/container layout */}
+            <div className="bento-home" key={locale}>
+              {/* Row 1: stats + profile */}
+              <section className="bento-top">
                 <StatsCards
                   activities={filtered}
                   allActivities={activities}
@@ -178,63 +181,68 @@ function Dashboard() {
                   filter={filter}
                   onSelectActivity={selectActivity}
                 />
-                <ContributionHeatmap
-                  activities={activities}
-                  year={heatmapYear}
-                  filter={filter}
-                  onSelectActivity={selectActivity}
-                />
-                <ActivityLog
-                  activities={filtered}
-                  years={years}
-                  year={year}
-                  setYear={(value) => {
-                    setYear(value);
-                    setSelectedActivity(null);
-                    setSelectedProvince(null);
-                  }}
-                  selectedActivity={selectedActivity}
-                  onSelectActivity={selectActivity}
-                  filter={filter}
-                />
-              </div>
+                <div className="bento-top-profile">
+                  <ProfileCard activities={activities} filter={filter} />
+                </div>
+              </section>
 
-              {/* Right column */}
-              <div className="flex min-w-0 flex-col gap-6 overflow-hidden">
-                <ProfileCard activities={activities} filter={filter} />
-                <ChinaMap
-                  activities={filtered}
-                  filter={filter}
-                  selectedProvince={selectedProvince}
-                  onSelectProvince={selectProvince}
-                />
-                <div ref={routeSectionRef} className="scroll-mt-28">
-                  <RouteMap
-                    activities={provinceFiltered}
+              {/* Two-column flow: left grows with heatmap; right stays packed at top */}
+              <section className="bento-body">
+                <div className="bento-main">
+                  <ContributionHeatmap
+                    activities={activities}
+                    year={heatmapYear}
+                    filter={filter}
+                    onSelectActivity={selectActivity}
+                  />
+                  <ActivityLog
+                    activities={filtered}
+                    years={years}
+                    year={year}
+                    setYear={(value) => {
+                      setYear(value);
+                      setSelectedActivity(null);
+                      setSelectedProvince(null);
+                    }}
                     selectedActivity={selectedActivity}
-                    dark={dark}
-                    onClearSelection={() => setSelectedActivity(null)}
+                    onSelectActivity={selectActivity}
+                    filter={filter}
                   />
                 </div>
-                <PersonalBest
-                  activities={activities}
-                  onSelectActivity={selectActivity}
-                />
-                <CalendarWidget
-                  key={year ?? 'all'}
-                  selectedActivity={selectedActivity}
-                  activities={filtered}
-                  onSelectActivity={selectActivity}
-                />
-              </div>
+
+                <div className="bento-side">
+                  <ChinaMap
+                    activities={filtered}
+                    filter={filter}
+                    selectedProvince={selectedProvince}
+                    onSelectProvince={selectProvince}
+                  />
+                  <div className="bento-side-stack">
+                    <div ref={routeSectionRef} className="scroll-mt-28">
+                      <RouteMap
+                        activities={provinceFiltered}
+                        selectedActivity={selectedActivity}
+                        dark={dark}
+                        onClearSelection={() => setSelectedActivity(null)}
+                      />
+                    </div>
+                    <PersonalBest
+                      activities={activities}
+                      onSelectActivity={selectActivity}
+                    />
+                    <CalendarWidget
+                      key={year ?? 'all'}
+                      selectedActivity={selectedActivity}
+                      activities={filtered}
+                      onSelectActivity={selectActivity}
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
           </main>
         )}
       </Suspense>
-
-      <footer className="border-t border-[var(--color-border)] py-6 text-center text-sm text-[var(--color-muted)]">
-        &copy; {currentYear} {t('siteTitle')}
-      </footer>
     </div>
   );
 }

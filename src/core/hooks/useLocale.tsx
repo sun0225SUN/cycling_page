@@ -15,20 +15,24 @@ const LocaleContext = createContext<LocaleContextValue>({
   t: (key) => key,
 });
 
+function resolveLocale(value: string | null | undefined): Locale {
+  return value === 'zh' || value === 'en' ? value : DEFAULT_LOCALE;
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(() => {
-    const stored = localStorage.getItem('locale');
-    return (stored as Locale) || DEFAULT_LOCALE;
-  });
+  const [locale, setLocale] = useState<Locale>(() =>
+    resolveLocale(localStorage.getItem('locale'))
+  );
 
   const updateLocale = useCallback((l: Locale) => {
-    setLocale(l);
-    localStorage.setItem('locale', l);
+    const next = resolveLocale(l);
+    setLocale(next);
+    localStorage.setItem('locale', next);
   }, []);
 
   const t = useCallback(
     (key: string) => {
-      return messages[locale][key] || key;
+      return messages[locale]?.[key] || messages[DEFAULT_LOCALE]?.[key] || key;
     },
     [locale]
   );

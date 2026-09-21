@@ -8,6 +8,7 @@ import {
   formatPace,
 } from '../hooks/useActivities';
 import { useLocale } from '../hooks/useLocale';
+import { useTheme } from '../hooks/useTheme';
 
 const MAX_VISIBLE_YEARS = 10;
 const weekdayIds = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -35,26 +36,32 @@ const TYPE_PALETTES: Record<string, string[]> = {
   Training: ['#fce7f3', '#f9a8d4', '#ec4899', '#db2777'],
 };
 
-// Color for single-filter modes (intensity by global max)
-function getColor(distance: number, max: number, filter: SportFilter): string {
+const LIGHT_HEAT = ['#d4e8fa', '#8abff0', '#3d94e0', '#0071e3'];
+const DARK_HEAT = ['#3f451c', '#8b943c', '#c4ce52', 'rgb(224, 237, 94)'];
+
+// Use the React theme flag directly — reading getComputedStyle during render
+// races applyTheme's useEffect and keeps the previous palette on first toggle.
+function readThemeHeatPalette(dark: boolean): string[] {
+  return dark ? DARK_HEAT : LIGHT_HEAT;
+}
+
+// Color for intensity modes (theme-aware for "all", sport palettes otherwise)
+function getColor(
+  distance: number,
+  max: number,
+  filter: SportFilter,
+  heatPalette: string[]
+): string {
   if (distance === 0) return 'var(--color-border)';
   const level = Math.ceil(Math.min(distance / max, 1) * 4);
   const colors: Record<string, string[]> = {
-    all: ['#eef2bd', '#dce68a', '#b7c64b', '#879629'],
+    all: heatPalette,
     Run: TYPE_PALETTES.Run,
     Ride: TYPE_PALETTES.Ride,
     Hike: TYPE_PALETTES.Hike,
     Gym: ['#cffafe', '#67e8f9', '#0891b2', '#155e75'],
   };
-  const palette = colors[filter] ?? colors.all;
-  return palette[level - 1] ?? palette[0];
-}
-
-// Color for "all" mode: ratio is per-type (dayDist / typeMax)
-function getColorAll(typeRatio: number, displayType: string): string {
-  if (typeRatio === 0) return 'var(--color-border)';
-  const level = Math.ceil(Math.min(typeRatio, 1) * 4);
-  const palette = TYPE_PALETTES[displayType] ?? TYPE_PALETTES.Training;
+  const palette = colors[filter] ?? heatPalette;
   return palette[level - 1] ?? palette[0];
 }
 
@@ -209,6 +216,8 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
   onSelectActivity,
 }: HeatmapProps) {
   const { t, locale } = useLocale();
+  const { dark } = useTheme();
+  const heatPalette = useMemo(() => readThemeHeatPalette(dark), [dark]);
   const allYears = useMemo(() => getAvailableYears(activities), [activities]);
   const [selectedYear, setSelectedYear] = useState<number | 'all'>(defaultYear);
   const [previousDefaultYear, setPreviousDefaultYear] = useState(defaultYear);
@@ -218,16 +227,9 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
   );
   const captureRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState('');
-  const [exportUrl, setExportUrl] = useState('');
-  const [dayActivities, setDayActivities] = useState<Activity[]>([]);
-
   if (previousDefaultYear !== defaultYear) {
     setPreviousDefaultYear(defaultYear);
     setSelectedYear(defaultYear);
-    setDayActivities([]);
-    setExportUrl('');
-    setExportMessage('');
     const index = allYears.indexOf(defaultYear);
     if (index >= 0)
       setYearWindowEnd(
@@ -258,24 +260,6 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
       ? ['', '一', '', '三', '', '五', '']
       : ['', 'M', '', 'W', '', 'F', ''];
 
-  // Which display types are present this year
-  const presentDisplayTypes = useMemo(() => {
-    if (!isAll) return [];
-    const yearToCheck = selectedYear === 'all' ? null : selectedYear;
-    const types = new Set(
-      activities
-        .filter(
-          (a) =>
-            yearToCheck === null ||
-            new Date(a.start_date_local).getFullYear() === yearToCheck
-        )
-        .map((a) => toDisplayType(a.type))
-    );
-    return (['Run', 'Ride', 'Hike', 'Training'] as const).filter((t) =>
-      types.has(t)
-    );
-  }, [activities, selectedYear, isAll]);
-
   // Gym: monthly session breakdown
   const gymMonthlyData = useMemo(() => {
     if (!isGym || selectedYear === 'all') return [];
@@ -299,10 +283,7 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
   const heatmapTitle = t('heatmapTitle');
 
   const handleSelectYear = (yr: number | 'all') => {
-    setExportUrl('');
-    setExportMessage('');
     setSelectedYear(yr);
-    setDayActivities([]);
   };
 
   // Visible year window
@@ -320,17 +301,10 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
   const handleExport = async () => {
     if (!captureRef.current || exporting) return;
     setExporting(true);
-    setExportMessage('');
     try {
-      setExportUrl(
-        await exportCard(captureRef.current, `heatmap-${selectedYear}.png`)
-      );
-      setExportMessage(locale === 'zh' ? '图片已生成' : 'Image ready');
+      await exportCard(captureRef.current, `heatmap-${selectedYear}.png`);
     } catch (err) {
       console.error('Export failed:', err);
-      setExportMessage(
-        locale === 'zh' ? '导出失败，请重试' : 'Export failed. Please retry.'
-      );
     } finally {
       setExporting(false);
     }
@@ -350,23 +324,15 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
       ref={captureRef}
       role="region"
       aria-label={heatmapTitle}
-      className="heatmap-card overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5"
+      className="heatmap-card bento-card"
     >
       <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
+        .heatmap-grid-gap {
+          gap: 4px;
         }
-        @keyframes expandDown {
-          from { opacity: 0; transform: scaleY(0.92) translateY(-8px); }
-          to { opacity: 1; transform: scaleY(1) translateY(0); }
-        }
-        .heatmap-all-years {
-          transform-origin: top center;
-          animation: expandDown 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .heatmap-year-row {
-          animation: fadeSlideIn 0.32s ease-out both;
+        .heatmap-day {
+          min-width: 11px;
+          min-height: 11px;
         }
         .exporting,
         .exporting *,
@@ -378,18 +344,14 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
       `}</style>
 
       {/* Header */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="heatmap-card-header flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{heatmapTitle}</h2>
         <div className="flex flex-wrap items-center gap-1.5">
           {/* ALL button */}
           <button
             aria-pressed={selectedYear === 'all'}
             onClick={() => handleSelectYear('all')}
-            className={`rounded px-2.5 py-1 text-xs font-medium ${
-              selectedYear === 'all'
-                ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
-                : 'text-[var(--color-muted)] hover:text-[var(--color-text)]'
-            }`}
+            className={`bento-pill ${selectedYear === 'all' ? 'bento-pill-active' : ''}`}
           >
             {locale === 'zh' ? '全部' : 'ALL'}
           </button>
@@ -426,11 +388,7 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
               key={y}
               aria-pressed={selectedYear === y}
               onClick={() => handleSelectYear(y)}
-              className={`rounded px-2.5 py-1 text-xs font-medium ${
-                selectedYear === y
-                  ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]'
-                  : 'text-[var(--color-muted)] hover:text-[var(--color-text)]'
-              }`}
+              className={`bento-pill ${selectedYear === y ? 'bento-pill-active' : ''}`}
             >
               {y}
             </button>
@@ -503,221 +461,209 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
         </div>
       </div>
 
-      <p
-        data-export-hidden
-        className="heatmap-scroll-hint mb-2 text-xs text-[var(--color-muted)]"
-      >
-        {locale === 'zh' ? '左右滑动查看全年' : 'Swipe to see the full year'}
-      </p>
-      {/* Year grid(s) */}
-      <div
-        className={
-          selectedYear === 'all' ? 'heatmap-all-years space-y-8' : 'space-y-6'
-        }
-        key={String(selectedYear)}
-      >
-        {yearData.map(({ year: yr, grid, max, monthPositions, stats }, idx) => (
-          <div
-            key={yr}
-            className="heatmap-year-row min-w-[810px]"
-            style={{ animationDelay: `${idx * 60}ms` }}
-          >
-            {/* Year label when showing all */}
-            {selectedYear === 'all' && (
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold text-[var(--color-accent)]">
-                  {yr}
-                </span>
-                <span className="text-xs text-[var(--color-muted)]">
-                  {stats.count} {locale === 'zh' ? '次' : 'sessions'}
-                  {!isGym && ` · ${formatDistance(stats.distance)} km`}
-                </span>
-              </div>
-            )}
-            <div className="ml-5 flex">
-              {monthPositions.map((m, i) => {
-                const nextStart = monthPositions[i + 1]?.weekIdx ?? grid.length;
-                const span = nextStart - m.weekIdx;
-                return (
-                  <div
-                    key={m.label}
-                    className="text-xs text-[var(--color-muted)]"
-                    style={{
-                      width: `${span * 14}px`,
-                      minWidth: `${span * 14}px`,
-                    }}
-                  >
-                    {locale === 'zh'
-                      ? `${m.label}月`
-                      : [
-                          'Jan',
-                          'Feb',
-                          'Mar',
-                          'Apr',
-                          'May',
-                          'Jun',
-                          'Jul',
-                          'Aug',
-                          'Sep',
-                          'Oct',
-                          'Nov',
-                          'Dec',
-                        ][Number(m.label) - 1]}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-1 flex gap-[3px]">
-              <div className="mr-1 flex flex-col gap-[3px]">
-                {dayLabels.map((d, i) => (
-                  <div
-                    key={weekdayIds[i]}
-                    className="flex h-3 w-3 items-center justify-center text-[10px] text-[var(--color-muted)]"
-                  >
-                    {d}
-                  </div>
-                ))}
-              </div>
-              {grid.map((week) => (
-                <div key={week[0].date} className="flex flex-col gap-[3px]">
-                  {week.map((day) => {
-                    const bgColor =
-                      day.distance === 0
-                        ? 'var(--color-border)'
-                        : isAll
-                          ? getColorAll(day.typeRatio, day.domType)
-                          : getColor(day.distance, max, filter);
-                    const titleText =
-                      day.activities.length === 0
-                        ? day.date
-                        : isGym
-                          ? `${day.date}: ${day.distance} session(s)`
-                          : day.domType === 'Training'
-                            ? `${day.date}: ${Math.round(day.timeSecs / 60)}min`
-                            : `${day.date}: ${(day.activities.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1)} km`;
-                    return (
-                      <button
-                        type="button"
-                        disabled={!day.activities.length}
-                        aria-label={titleText}
-                        key={day.date}
-                        className="heatmap-day h-3 w-3 shrink-0 rounded-sm transition-colors hover:ring-1 hover:ring-[var(--color-muted)]"
-                        style={{ backgroundColor: bgColor }}
-                        title={titleText}
-                        onClick={() => {
-                          setDayActivities(day.activities);
-                          if (day.activities.length === 1)
-                            onSelectActivity?.(day.activities[0]);
-                        }}
-                      />
-                    );
-                  })}
+      <div className="heatmap-card-body">
+        <p
+          data-export-hidden
+          className="heatmap-scroll-hint mb-0 text-xs text-[var(--color-muted)]"
+        >
+          {locale === 'zh' ? '左右滑动查看全年' : 'Swipe to see the full year'}
+        </p>
+        {/* Year grid(s) */}
+        <div
+          className={
+            selectedYear === 'all' ? 'heatmap-all-years space-y-8' : 'space-y-6'
+          }
+          key={String(selectedYear)}
+        >
+          {yearData.map(({ year: yr, grid, max, monthPositions, stats }) => (
+            <div key={yr} className="heatmap-year-row w-full min-w-0">
+              {/* Year label when showing all */}
+              {selectedYear === 'all' && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--color-accent)]">
+                    {yr}
+                  </span>
+                  <span className="text-xs text-[var(--color-muted)]">
+                    {stats.count} {locale === 'zh' ? '次' : 'sessions'}
+                    {!isGym && ` · ${formatDistance(stats.distance)} km`}
+                  </span>
                 </div>
-              ))}
+              )}
+              <div className="heatmap-scroll-x w-full min-w-0 overflow-x-auto">
+                <div className="heatmap-grid-canvas min-w-0">
+                  <div className="heatmap-grid-gap mb-1.5 flex w-full">
+                    <div className="heatmap-weekday-gutter w-3.5 shrink-0" />
+                    <div className="heatmap-weeks-row flex min-w-0 flex-1">
+                      {monthPositions.map((m, i) => {
+                        const nextStart =
+                          monthPositions[i + 1]?.weekIdx ?? grid.length;
+                        const span = Math.max(nextStart - m.weekIdx, 1);
+                        return (
+                          <div
+                            key={m.label}
+                            className="heatmap-month-label truncate text-xs text-[var(--color-muted)]"
+                            style={{ flex: `${span} 1 0%` }}
+                          >
+                            {locale === 'zh'
+                              ? `${m.label}月`
+                              : [
+                                  'Jan',
+                                  'Feb',
+                                  'Mar',
+                                  'Apr',
+                                  'May',
+                                  'Jun',
+                                  'Jul',
+                                  'Aug',
+                                  'Sep',
+                                  'Oct',
+                                  'Nov',
+                                  'Dec',
+                                ][Number(m.label) - 1]}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="heatmap-grid-gap flex w-full items-stretch">
+                    <div className="heatmap-grid-gap heatmap-weekday-gutter flex w-3.5 shrink-0 flex-col">
+                      {dayLabels.map((d, i) => (
+                        <div
+                          key={weekdayIds[i]}
+                          className="flex flex-1 items-center justify-center text-[10px] leading-none text-[var(--color-muted)]"
+                        >
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="heatmap-weeks-row heatmap-grid-gap flex min-w-0 flex-1">
+                      {grid.map((week) => {
+                        const weekKey = week[0]?.date ?? `empty-${week.length}`;
+                        // Pad first/last week so each column has 7 rows (Sun–Sat)
+                        const lead = week[0]
+                          ? new Date(week[0].date + 'T00:00:00').getDay()
+                          : 0;
+                        // Only pad leading empty days on the first calendar week
+                        const isFirstWeek = week === grid[0];
+                        const leadPads = isFirstWeek ? lead : 0;
+                        const cells: {
+                          day: (typeof week)[number] | null;
+                          key: string;
+                        }[] = [
+                          ...Array.from({ length: leadPads }, (_, pad) => ({
+                            day: null,
+                            key: `lead-${weekKey}-d${pad}`,
+                          })),
+                          ...week.map((day) => ({ day, key: day.date })),
+                        ];
+                        while (cells.length < 7) {
+                          cells.push({
+                            day: null,
+                            key: `trail-${weekKey}-n${cells.length}`,
+                          });
+                        }
+
+                        return (
+                          <div
+                            key={weekKey}
+                            className="heatmap-week-col heatmap-grid-gap flex min-w-0 flex-1 flex-col"
+                          >
+                            {cells.map(({ day, key }) => {
+                              if (!day) {
+                                return (
+                                  <div
+                                    key={key}
+                                    className="aspect-square w-full"
+                                  />
+                                );
+                              }
+                              const bgColor =
+                                day.distance === 0
+                                  ? 'var(--color-border)'
+                                  : getColor(
+                                      day.distance,
+                                      max,
+                                      isAll ? 'all' : filter,
+                                      heatPalette
+                                    );
+                              const titleText =
+                                day.activities.length === 0
+                                  ? day.date
+                                  : isGym
+                                    ? `${day.date}: ${day.distance} session(s)`
+                                    : day.domType === 'Training'
+                                      ? `${day.date}: ${Math.round(day.timeSecs / 60)}min`
+                                      : `${day.date}: ${(day.activities.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1)} km`;
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={!day.activities.length}
+                                  aria-label={titleText}
+                                  key={day.date}
+                                  className="heatmap-day aspect-square w-full min-w-0 rounded-sm hover:ring-1 hover:ring-[var(--color-muted)]"
+                                  style={{ backgroundColor: bgColor }}
+                                  title={titleText}
+                                  onClick={() => {
+                                    if (!day.activities.length) return;
+                                    const pick = [...day.activities].sort(
+                                      (a, b) => b.distance - a.distance
+                                    )[0];
+                                    onSelectActivity?.(pick);
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {exportMessage && (
-        <p
-          role="status"
-          data-export-hidden
-          className="mt-3 text-xs text-[var(--color-muted)]"
-        >
-          {exportMessage}
-          {exportUrl && (
-            <a
-              href={exportUrl}
-              download={`heatmap-${selectedYear}.png`}
-              className="ml-3 underline"
-            >
-              {locale === 'zh' ? '下载图片' : 'Download image'}
-            </a>
-          )}
-        </p>
-      )}
-      {dayActivities.length > 0 && (
-        <div
-          data-export-hidden
-          className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--color-border)] pt-3"
-        >
-          <span className="text-xs text-[var(--color-muted)]">
-            {dayActivities[0].start_date_local.slice(0, 10)}
+      {/* Legend + count / time / distance — separate from heatmap body */}
+      <div className="heatmap-card-footer flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-[var(--color-muted)]">
+            {t('less')}
           </span>
-          {dayActivities.map((activity) => (
-            <button
-              key={activity.run_id}
-              className="rounded-md border border-[var(--color-border)] px-2 text-xs hover:bg-[var(--color-bg)]"
-              onClick={() => onSelectActivity?.(activity)}
-            >
-              {activity.start_date_local.slice(11, 16)} · {activity.name} ·{' '}
-              {(activity.distance / 1000).toFixed(1)} km
-            </button>
-          ))}
-          <button
-            aria-label={
-              locale === 'zh' ? '关闭当日活动' : 'Close daily activities'
-            }
-            className="px-2 text-sm"
-            onClick={() => setDayActivities([])}
-          >
-            ×
-          </button>
-        </div>
-      )}
-      {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        {isAll ? (
-          presentDisplayTypes.map((tp) => (
-            <span
-              key={tp}
-              className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]"
-            >
-              <span className="flex gap-[2px]">
-                {TYPE_PALETTES[tp].map((c) => (
-                  <span
-                    key={c}
-                    className="inline-block h-2.5 w-2.5 rounded-sm"
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </span>
-              {typeLabel(tp, locale)}
-            </span>
-          ))
-        ) : (
-          <>
-            <span className="text-xs text-[var(--color-muted)]">
-              {t('less')}
-            </span>
+          <span className="flex gap-[2px]">
             {[0.1, 0.35, 0.6, 0.82, 1].map((ratio) => (
-              <div
+              <span
                 key={ratio}
-                className="h-3 w-3 rounded-sm"
+                className="inline-block h-2.5 w-2.5 rounded-sm"
                 style={{
                   backgroundColor: getColor(
                     ratio * (yearData[0]?.max || 1),
                     yearData[0]?.max || 1,
-                    filter
+                    isAll ? 'all' : filter,
+                    heatPalette
                   ),
                 }}
               />
             ))}
-            <span className="text-xs text-[var(--color-muted)]">
-              {t('more')}
-            </span>
-          </>
-        )}
-      </div>
+          </span>
+          <span className="text-[11px] text-[var(--color-muted)]">
+            {t('more')}
+          </span>
+        </div>
 
-      {/* Stats row */}
-      {selectedYear === 'all'
-        ? allStats && (
-            <div className="mt-4 flex items-center justify-end gap-4 border-t border-[var(--color-border)] pt-4 text-sm text-[var(--color-muted)]">
-              <span className="mr-auto text-xs text-[var(--color-muted)]">
-                {locale === 'zh' ? '全部年份汇总' : 'All-time total'}
-              </span>
+        {(() => {
+          const stats =
+            selectedYear === 'all'
+              ? allStats
+              : yearData[0]
+                ? yearData[0].stats
+                : null;
+          if (!stats) return null;
+          return (
+            <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--color-muted)]">
               <span className="flex items-center gap-1 font-mono">
                 <svg
                   className="h-3.5 w-3.5"
@@ -732,7 +678,7 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-                {allStats.count} {locale === 'zh' ? '次' : 'sessions'}
+                {stats.count} {locale === 'zh' ? '次' : 'sessions'}
               </span>
               <span className="flex items-center gap-1 font-mono">
                 <svg
@@ -748,7 +694,7 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                {(allStats.time / 3600).toFixed(0)}h
+                {(stats.time / 3600).toFixed(0)}h
               </span>
               {!isGym && (
                 <span className="flex items-center gap-1 font-mono">
@@ -765,83 +711,21 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                       d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
                     />
                   </svg>
-                  {formatDistance(allStats.distance)} km
+                  {formatDistance(stats.distance)} km
                 </span>
               )}
+              {selectedYear !== 'all' &&
+                filter === 'Run' &&
+                'pace' in stats &&
+                stats.pace > 0 && (
+                  <span className="flex items-center gap-1 font-mono">
+                    {formatPace(stats.pace)}
+                  </span>
+                )}
             </div>
-          )
-        : yearData[0] && (
-            <div className="mt-4 flex items-center justify-end gap-4 border-t border-[var(--color-border)] pt-4 text-sm text-[var(--color-muted)]">
-              <span className="flex items-center gap-1 font-mono">
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                {yearData[0].stats.count} {locale === 'zh' ? '次' : 'sessions'}
-              </span>
-              <span className="flex items-center gap-1 font-mono">
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {(yearData[0].stats.time / 3600).toFixed(0)}h
-              </span>
-              {!isGym && (
-                <span className="flex items-center gap-1 font-mono">
-                  <svg
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                    />
-                  </svg>
-                  {formatDistance(yearData[0].stats.distance)} km
-                </span>
-              )}
-              {filter === 'Run' && yearData[0].stats.pace > 0 && (
-                <span className="flex items-center gap-1 font-mono">
-                  <svg
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                    />
-                  </svg>
-                  {formatPace(yearData[0].stats.pace)}
-                </span>
-              )}
-            </div>
-          )}
+          );
+        })()}
+      </div>
 
       {/* Gym: monthly frequency bars */}
       {isGym && gymMonthlyData.length > 0 && (

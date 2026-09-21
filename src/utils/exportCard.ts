@@ -1,47 +1,66 @@
-/** Capture the full card, and restore live layout even if rendering fails. */
+/**
+ * Capture a card as PNG without mutating the live layout.
+ * Expanding the on-screen element (overflow/width) caused a visible jitter;
+ * we clone off-screen, expand the clone, then export that instead.
+ */
 export async function exportCard(element: HTMLElement, filename: string) {
   const { toPng } = await import('html-to-image');
-  const previous = {
-    overflow: element.style.overflow,
-    width: element.style.width,
-    maxWidth: element.style.maxWidth,
-    scrollLeft: element.scrollLeft,
-  };
   const computed = getComputedStyle(element);
   const width = Math.ceil(
     Math.max(
       element.getBoundingClientRect().width,
-      element.scrollWidth + parseFloat(computed.paddingRight) + 2
+      element.scrollWidth + parseFloat(computed.paddingRight || '0') + 2
     )
   );
-  element.classList.add('exporting');
-  element.style.overflow = 'visible';
-  element.style.maxWidth = 'none';
-  element.style.width = `${width}px`;
+
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  host.style.cssText = [
+    'position:fixed',
+    'left:-100000px',
+    'top:0',
+    'z-index:-1',
+    'pointer-events:none',
+    'opacity:1',
+  ].join(';');
+
+  const clone = element.cloneNode(true) as HTMLElement;
+  clone.classList.add('exporting');
+  clone
+    .querySelectorAll('[data-export-hidden]')
+    .forEach((node) => node.remove());
+  clone.style.overflow = 'visible';
+  clone.style.maxWidth = 'none';
+  clone.style.width = `${width}px`;
+  clone.style.margin = '0';
+  clone.scrollLeft = 0;
+
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
   try {
     await document.fonts.ready;
-    await new Promise(requestAnimationFrame);
-    const bounds = element.getBoundingClientRect();
-    const dataUrl = await toPng(element, {
-      backgroundColor: computed.backgroundColor,
-      width: Math.ceil(bounds.width),
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+
+    const bounds = clone.getBoundingClientRect();
+    const dataUrl = await toPng(clone, {
+      backgroundColor:
+        computed.backgroundColor === 'rgba(0, 0, 0, 0)'
+          ? undefined
+          : computed.backgroundColor,
+      width: Math.ceil(Math.max(bounds.width, width)),
       height: Math.ceil(bounds.height),
       pixelRatio: 2,
-      filter: (node) =>
-        !(
-          node instanceof HTMLElement && node.hasAttribute('data-export-hidden')
-        ),
     });
+
     const link = document.createElement('a');
     link.download = filename;
     link.href = dataUrl;
     link.click();
     return dataUrl;
   } finally {
-    element.classList.remove('exporting');
-    element.style.overflow = previous.overflow;
-    element.style.width = previous.width;
-    element.style.maxWidth = previous.maxWidth;
-    element.scrollLeft = previous.scrollLeft;
+    host.remove();
   }
 }

@@ -113,7 +113,7 @@ export const ChinaMap = memo(function ChinaMap({
     <div
       role="region"
       aria-label={locale === 'zh' ? '足迹地图' : 'Footprint map'}
-      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5"
+      className="china-map-card bento-card p-5"
     >
       {/* Header */}
       <div className="mb-3 flex items-center justify-between">
@@ -124,7 +124,7 @@ export const ChinaMap = memo(function ChinaMap({
           {selectedProvince ? (
             <button
               onClick={() => onSelectProvince?.(null)}
-              className="flex items-center gap-1 text-[var(--color-accent)] transition-opacity hover:opacity-70"
+              className="flex items-center gap-1 text-[var(--color-accent)] hover:opacity-70"
             >
               <svg
                 className="h-3 w-3"
@@ -155,8 +155,11 @@ export const ChinaMap = memo(function ChinaMap({
         </div>
       </div>
 
-      {/* SVG Map — aspect-ratio wrapper prevents stretching */}
-      <div className="relative" style={{ aspectRatio: `${SVG_W} / ${SVG_H}` }}>
+      {/* SVG Map — aspect-ratio keeps shape; flex parent may grow the card */}
+      <div
+        className="china-map-canvas relative min-h-0 w-full"
+        style={{ aspectRatio: `${SVG_W} / ${SVG_H}` }}
+      >
         <svg
           key={filter}
           role="group"
@@ -202,7 +205,11 @@ export const ChinaMap = memo(function ChinaMap({
                 fill={fill}
                 stroke="var(--color-bg)"
                 strokeWidth="0.5"
-                className={`transition-all duration-150 ${visited ? 'cursor-pointer focus:outline-2 focus:outline-[var(--color-accent)]' : 'cursor-default'}`}
+                className={
+                  visited
+                    ? 'cursor-pointer focus:outline-2 focus:outline-[var(--color-accent)]'
+                    : 'cursor-default'
+                }
                 onMouseEnter={() => setHoveredProvince(name)}
                 onMouseLeave={() => setHoveredProvince(null)}
                 role={visited && onSelectProvince ? 'button' : undefined}

@@ -30,8 +30,7 @@ function AppLoading() {
         justifyContent: 'center',
         color: '#8b949e',
         fontSize: '0.875rem',
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       {t('loading')}

@@ -66,7 +66,6 @@ export function CalendarWidget({
   const distance = monthActivities.reduce((sum, a) => sum + a.distance, 0);
   const offset = (month.getDay() + 6) % 7;
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const dayActivities = day === null ? [] : (byDay.get(day) ?? []);
   const moveMonth = (delta: number) => {
     setMonth(new Date(year, monthIndex + delta, 1));
     setDay(null);
@@ -82,7 +81,7 @@ export function CalendarWidget({
   return (
     <section
       aria-label={zh ? '活动日历' : 'Activity calendar'}
-      className="w-full min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4"
+      className="bento-card w-full min-w-0 p-4"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{monthLabel}</h2>
@@ -148,7 +147,11 @@ export function CalendarWidget({
               className={`calendar-day relative flex h-9 flex-col items-center justify-center rounded-md text-xs ${list.length ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/30' : 'text-[var(--color-muted)]'} ${day === number ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
               onClick={() => {
                 setDay(number);
-                if (list.length === 1) onSelectActivity(list[0]);
+                if (!list.length) return;
+                const pick = [...list].sort(
+                  (a, b) => b.distance - a.distance
+                )[0];
+                onSelectActivity(pick);
               }}
             >
               <span>{number}</span>
@@ -161,34 +164,6 @@ export function CalendarWidget({
           );
         })}
       </div>
-      {day !== null && dayActivities.length > 0 && (
-        <div className="mt-3 space-y-1 border-t border-[var(--color-border)] pt-3">
-          <p className="mb-2 text-xs text-[var(--color-muted)]">
-            {monthIndex + 1}/{day} ·{' '}
-            {zh ? '选择活动查看路线' : 'Select an activity to view its route'}
-          </p>
-          {dayActivities.map((activity) => (
-            <button
-              key={activity.run_id}
-              aria-pressed={selectedActivity?.run_id === activity.run_id}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-bg)] aria-pressed:bg-[var(--color-accent)]/10"
-              onClick={() => onSelectActivity(activity)}
-            >
-              <span className="min-w-0 truncate">
-                {activity.start_date_local.slice(11, 16)} · {activity.name}
-              </span>
-              <span className="shrink-0 font-mono">
-                {(activity.distance / 1000).toFixed(1)} km
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      {!monthActivities.length && (
-        <p className="mt-3 text-center text-xs text-[var(--color-muted)]">
-          {zh ? '本月没有活动' : 'No activities this month'}
-        </p>
-      )}
     </section>
   );
 }

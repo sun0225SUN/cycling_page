@@ -75,7 +75,7 @@ export const PersonalBest = memo(function PersonalBest({
   if (!hasBests) return null;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 hover:border-[var(--color-accent)]/30 hover:bg-[var(--color-accent)]/5 hover:shadow-[var(--color-accent)]/5 hover:shadow-lg">
+    <div className="bento-card !py-4">
       <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
         <svg
           className="h-4 w-4 text-[var(--color-accent)]"
@@ -93,15 +93,15 @@ export const PersonalBest = memo(function PersonalBest({
         {locale === 'zh' ? '个人最佳' : 'Personal Best'}
       </h3>
 
-      <div className="divide-y divide-[var(--color-border)]">
+      <div>
         {bests.map(({ key, activity, time }) => (
           <button
             type="button"
             disabled={!activity || !onSelectActivity}
             key={key}
-            className={`flex w-full items-center justify-between gap-3 py-2 text-left ${
+            className={`flex w-full items-center justify-between gap-3 py-1.5 text-left ${
               activity
-                ? '-mx-2 cursor-pointer rounded-lg px-2 transition-colors hover:bg-[var(--color-bg)]'
+                ? '-mx-2 cursor-pointer rounded-lg px-2 hover:bg-[var(--color-bg)]'
                 : ''
             }`}
             onClick={() => activity && onSelectActivity?.(activity)}

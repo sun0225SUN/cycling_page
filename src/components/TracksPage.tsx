@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { exportCard } from '../utils/exportCard';
+import { clusterTracks } from '../utils/clusterTracks';
 import { RouteMap } from './RouteMap';
 import * as polyline from '@mapbox/polyline';
 import type { Activity } from '../types';
@@ -12,10 +13,7 @@ import {
 import { useLocale } from '../hooks/useLocale';
 
 type SportType = 'Run' | 'cycling' | 'Ride';
-const trackPlaceholders = Array.from({ length: 40 }, (_, id) => ({
-  id,
-  delay: id * 20,
-}));
+type Cluster = { representative: Activity; count: number; color: string };
 
 interface TracksPageProps {
   activities: Activity[];
@@ -100,16 +98,34 @@ const TrackThumb = memo(function TrackThumb({
   );
 });
 
-function getColor(a: Activity): string {
+/** Theme-aware track stroke colors (aligned with dashboard accent tokens). */
+function trackPalette(dark: boolean) {
+  return dark
+    ? {
+        run: '#ff9f0a',
+        runLong: '#ff453a',
+        ride: '#e0ed5e',
+        rideLong: '#f5f7c0',
+        other: '#64d2ff',
+      }
+    : {
+        run: '#f97316',
+        runLong: '#ef4444',
+        ride: '#3b82f6',
+        rideLong: '#1d4ed8',
+        other: '#0ea5e9',
+      };
+}
+
+function getColor(a: Activity, dark = false): string {
+  const palette = trackPalette(dark);
   if (a.type === 'Run') {
-    const km = a.distance / 1000;
-    return km >= 20 ? '#ef4444' : '#f97316';
+    return a.distance / 1000 >= 20 ? palette.runLong : palette.run;
   }
   if (a.type === 'Ride' || a.type === 'cycling') {
-    const km = a.distance / 1000;
-    return km >= 60 ? '#1d4ed8' : '#3b82f6';
+    return a.distance / 1000 >= 60 ? palette.rideLong : palette.ride;
   }
-  return '#4dd2ff';
+  return palette.other;
 }
 
 export function TracksPage({
@@ -125,13 +141,9 @@ export function TracksPage({
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null
   );
-  const [sortBy, setSortBy] = useState<'date' | 'distance'>('date');
-
   // Export
   const captureRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState('');
-  const [exportUrl, setExportUrl] = useState('');
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Year pagination
@@ -183,59 +195,26 @@ export function TracksPage({
     return { totalDist, totalTime, avgSpeed: rides ? speed / rides : 0 };
   }, [base]);
 
-  // Cluster tracks — defer heavy work
-  type Cluster = { representative: Activity; count: number; color: string };
-  const [clusteredTracks, setClusteredTracks] = useState<Cluster[]>([]);
-  const [clusteredInput, setClusteredInput] = useState<Activity[] | null>(null);
-  const clustering = clusteredInput !== withPolyline;
-
-  useEffect(() => {
-    const worker = new Worker(
-      new URL('../workers/clusterTracks.worker.ts', import.meta.url),
-      { type: 'module' }
-    );
-    worker.onmessage = ({
-      data,
-    }: MessageEvent<{ index: number; count: number }[]>) => {
-      setClusteredTracks(
-        data.map(({ index, count }) => ({
-          representative: withPolyline[index],
-          count,
-          color: getColor(withPolyline[index]),
-        }))
-      );
-      setClusteredInput(withPolyline);
-    };
-    // If workers are unavailable, keep every route usable instead of an endless spinner.
-    worker.onerror = () => {
-      setClusteredTracks(
-        withPolyline.map((representative) => ({
-          representative,
-          count: 1,
-          color: getColor(representative),
-        }))
-      );
-      setClusteredInput(withPolyline);
-    };
-    worker.postMessage(
-      withPolyline.map(({ summary_polyline, start_date_local, distance }) => ({
-        summary_polyline,
-        start_date_local,
-        distance,
-      }))
-    );
-    return () => worker.terminate();
-  }, [withPolyline]);
+  // Sync cluster on first paint — async worker caused a tall→short card jump
+  // (provisional 1:1 thumbs, then merged clusters).
+  const isDark = !!dark;
+  const clusteredTracks = useMemo<Cluster[]>(() => {
+    if (!withPolyline.length) return [];
+    return clusterTracks(withPolyline).map(({ index, count }) => ({
+      representative: withPolyline[index],
+      count,
+      color: getColor(withPolyline[index], isDark),
+    }));
+  }, [withPolyline, isDark]);
 
   const sortedTracks = useMemo(
     () =>
-      [...clusteredTracks].sort((a, b) =>
-        sortBy === 'distance'
-          ? b.representative.distance - a.representative.distance
-          : new Date(b.representative.start_date_local).getTime() -
-            new Date(a.representative.start_date_local).getTime()
+      [...clusteredTracks].sort(
+        (a, b) =>
+          new Date(b.representative.start_date_local).getTime() -
+          new Date(a.representative.start_date_local).getTime()
       ),
-    [clusteredTracks, sortBy]
+    [clusteredTracks]
   );
 
   const handleSelectTrack = useCallback(
@@ -263,13 +242,14 @@ export function TracksPage({
     : 0;
   const selectedDurationLabel = `${Math.floor(selectedSeconds / 3600) ? Math.floor(selectedSeconds / 3600) + 'h ' : ''}${Math.floor((selectedSeconds % 3600) / 60)}m`;
 
+  const palette = trackPalette(isDark);
   const rideSport: SportType =
     hasSport('cycling') || !hasSport('Ride') ? 'cycling' : 'Ride';
   const allSportTabs: { label: string; value: SportType; color: string }[] = [
     {
       label: locale === 'zh' ? '骑行' : 'Ride',
       value: rideSport,
-      color: '#3b82f6',
+      color: palette.ride,
     },
   ];
 
@@ -297,69 +277,73 @@ export function TracksPage({
           {locale === 'zh' ? '返回' : 'Back'}
         </button>
         <h1 className="shrink-0 text-lg font-bold">
-          {locale === 'zh' ? '轨迹墙' : 'Track Wall'}
+          {locale === 'zh' ? '轨迹' : 'Track Wall'}
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[340px_1fr]">
-        {/* Left: stats + map */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] lg:items-stretch">
+        {/* Left: stats + map — stretches to match track wall height */}
         <div
           ref={previewRef}
-          className="flex scroll-mt-28 flex-col gap-4 lg:sticky lg:top-24"
+          className="tracks-preview flex h-full w-full min-w-0 scroll-mt-28 flex-col gap-4 lg:sticky lg:top-24"
         >
-          {/* Stats card */}
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+          {/* Stats card — 2×2 grid: 活动/时间/距离/均速 */}
+          <div className="bento-card p-4">
             <p className="mb-3 text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
               {selectedYear ?? (locale === 'zh' ? '全部' : 'Total')}
             </p>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
-              <div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <div className="min-w-0">
                 <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
                   {locale === 'zh' ? '活动' : 'Activities'}
                 </p>
-                <p className="font-mono text-2xl font-bold text-[var(--color-accent)]">
+                <p className="mt-1 font-mono text-xl font-bold text-[var(--color-accent)] tabular-nums sm:text-2xl">
                   {base.length}
                 </p>
               </div>
-              <div>
+              <div className="min-w-0">
+                <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
+                  {locale === 'zh' ? '时间' : 'Time'}
+                </p>
+                <p className="mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl">
+                  {Math.floor(totalTime / 3600)}h{' '}
+                  {Math.floor((totalTime % 3600) / 60)}m
+                </p>
+              </div>
+              <div className="min-w-0">
                 <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
                   {locale === 'zh' ? '距离' : 'Distance'}
                 </p>
-                <p className="font-mono text-2xl font-bold">
+                <p className="mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl">
                   {formatDistance(totalDist)}{' '}
                   <span className="text-sm font-normal text-[var(--color-muted)]">
                     km
                   </span>
                 </p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
-                  {locale === 'zh' ? '时间' : 'Time'}
+                  {locale === 'zh' ? '均速' : 'Avg Speed'}
                 </p>
-                <p className="font-mono text-lg font-bold">
-                  {Math.floor(totalTime / 3600)}h{' '}
-                  {Math.floor((totalTime % 3600) / 60)}m
+                <p className="mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl">
+                  {avgSpeed > 0 ? (
+                    <>
+                      {formatSpeed(avgSpeed)}{' '}
+                      <span className="text-sm font-normal text-[var(--color-muted)]">
+                        km/h
+                      </span>
+                    </>
+                  ) : (
+                    '—'
+                  )}
                 </p>
               </div>
-              {avgSpeed > 0 && (
-                <div>
-                  <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
-                    {locale === 'zh' ? '均速' : 'Avg Speed'}
-                  </p>
-                  <p className="font-mono text-lg font-bold">
-                    {formatSpeed(avgSpeed)}{' '}
-                    <span className="text-sm font-normal text-[var(--color-muted)]">
-                      km/h
-                    </span>
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Activity detail — only when a single track is selected */}
           {selectedActivity && (
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
+            <div className="bento-card p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
                   {locale === 'zh' ? '已选记录' : 'Selected'}
@@ -392,7 +376,7 @@ export function TracksPage({
               <p className="mb-0.5 truncate text-xs font-semibold">
                 {selectedActivity.name}
               </p>
-              <p className="mb-2 text-[10px] text-[var(--color-muted)]">
+              <p className="mb-3 text-[10px] text-[var(--color-muted)]">
                 {new Date(selectedActivity.start_date_local).toLocaleDateString(
                   locale === 'zh' ? 'zh-CN' : 'en-US',
                   { year: 'numeric', month: 'short', day: 'numeric' }
@@ -402,32 +386,32 @@ export function TracksPage({
                   { hour: '2-digit', minute: '2-digit' }
                 )}
               </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="min-w-0">
                   <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
                     {locale === 'zh' ? '距离' : 'Distance'}
                   </p>
-                  <p className="font-mono text-base leading-tight font-bold">
+                  <p className="mt-0.5 font-mono text-base leading-tight font-bold tabular-nums">
                     {(selectedActivity.distance / 1000).toFixed(2)}{' '}
                     <span className="text-[10px] font-normal text-[var(--color-muted)]">
                       km
                     </span>
                   </p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
                     {locale === 'zh' ? '时间' : 'Time'}
                   </p>
-                  <p className="font-mono text-base leading-tight font-bold">
+                  <p className="mt-0.5 font-mono text-base leading-tight font-bold tabular-nums">
                     {selectedDurationLabel}
                   </p>
                 </div>
                 {selectedActivity.average_speed > 0 && (
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
                       {locale === 'zh' ? '速度' : 'Speed'}
                     </p>
-                    <p className="font-mono text-base leading-tight font-bold">
+                    <p className="mt-0.5 font-mono text-base leading-tight font-bold tabular-nums">
                       {formatSpeed(selectedActivity.average_speed)}{' '}
                       <span className="text-[10px] font-normal text-[var(--color-muted)]">
                         km/h
@@ -437,11 +421,11 @@ export function TracksPage({
                 )}
                 {selectedActivity.elevation_gain != null &&
                   selectedActivity.elevation_gain > 0 && (
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
                         {locale === 'zh' ? '爬升' : 'Elev'}
                       </p>
-                      <p className="font-mono text-base leading-tight font-bold">
+                      <p className="mt-0.5 font-mono text-base leading-tight font-bold tabular-nums">
                         {Math.round(selectedActivity.elevation_gain)}{' '}
                         <span className="text-[10px] font-normal text-[var(--color-muted)]">
                           m
@@ -451,11 +435,11 @@ export function TracksPage({
                   )}
                 {selectedActivity.average_heartrate != null &&
                   selectedActivity.average_heartrate > 0 && (
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[9px] tracking-wider text-[var(--color-muted)] uppercase">
                         {locale === 'zh' ? '心率' : 'HR'}
                       </p>
-                      <p className="font-mono text-base leading-tight font-bold">
+                      <p className="mt-0.5 font-mono text-base leading-tight font-bold tabular-nums">
                         {Math.round(selectedActivity.average_heartrate)}{' '}
                         <span className="text-[10px] font-normal text-[var(--color-muted)]">
                           bpm
@@ -467,22 +451,24 @@ export function TracksPage({
             </div>
           )}
 
-          <RouteMap
-            activities={withPolyline}
-            selectedActivity={selectedActivity}
-            dark={dark}
-            onClearSelection={() => {
-              setSelectedActivity(null);
-              onSelectActivity?.(null);
-            }}
-          />
+          <div className="tracks-preview-map flex min-h-0 flex-1 flex-col">
+            <RouteMap
+              activities={withPolyline}
+              selectedActivity={selectedActivity}
+              dark={dark}
+              onClearSelection={() => {
+                setSelectedActivity(null);
+                onSelectActivity?.(null);
+              }}
+            />
+          </div>
         </div>
 
         {/* Right: track grid with year filter inside */}
-        <div className="min-w-0">
+        <div className="flex h-full min-w-0 flex-col">
           <div
             ref={captureRef}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4"
+            className="bento-card flex h-full min-h-0 flex-col p-4"
           >
             {/* Year pills + sport filter */}
             <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-[var(--color-border)] pb-3">
@@ -499,8 +485,6 @@ export function TracksPage({
               <button
                 aria-pressed={selectedYear === null}
                 onClick={() => {
-                  setExportUrl('');
-                  setExportMessage('');
                   setSelectedYear(null);
                   setSelectedActivity(null);
                   onSelectActivity?.(null);
@@ -514,8 +498,6 @@ export function TracksPage({
                   key={yr}
                   aria-pressed={selectedYear === yr}
                   onClick={() => {
-                    setExportUrl('');
-                    setExportMessage('');
                     setSelectedYear(yr);
                     setSelectedActivity(null);
                     onSelectActivity?.(null);
@@ -542,8 +524,6 @@ export function TracksPage({
                 <button
                   aria-pressed={sportFilter === null}
                   onClick={() => {
-                    setExportUrl('');
-                    setExportMessage('');
                     setSportFilter(null);
                     setSelectedActivity(null);
                     onSelectActivity?.(null);
@@ -559,8 +539,6 @@ export function TracksPage({
                       key={value}
                       aria-pressed={sportFilter === value}
                       onClick={() => {
-                        setExportUrl('');
-                        setExportMessage('');
                         setSportFilter(value);
                         setSelectedActivity(null);
                         onSelectActivity?.(null);
@@ -578,30 +556,19 @@ export function TracksPage({
                   onClick={async () => {
                     if (!captureRef.current || exporting) return;
                     setExporting(true);
-                    setExportMessage('');
                     try {
-                      setExportUrl(
-                        await exportCard(
-                          captureRef.current,
-                          `tracks-${selectedYear ?? 'all'}.png`
-                        )
-                      );
-                      setExportMessage(
-                        locale === 'zh' ? '图片已生成' : 'Image ready'
+                      await exportCard(
+                        captureRef.current,
+                        `tracks-${selectedYear ?? 'all'}.png`
                       );
                     } catch (err) {
                       console.error('Export failed:', err);
-                      setExportMessage(
-                        locale === 'zh'
-                          ? '导出失败，请重试'
-                          : 'Export failed. Please retry.'
-                      );
                     } finally {
                       setExporting(false);
                     }
                   }}
                   data-export-hidden
-                  disabled={exporting || clustering || !clusteredTracks.length}
+                  disabled={exporting || !sortedTracks.length}
                   className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-muted)] transition-all hover:text-[var(--color-text)] disabled:opacity-50"
                   title={locale === 'zh' ? '导出图片' : 'Export as image'}
                 >
@@ -638,40 +605,12 @@ export function TracksPage({
               </div>
             </div>
 
-            {exportMessage && (
-              <p
-                role="status"
-                data-export-hidden
-                className="mb-3 text-xs text-[var(--color-muted)]"
-              >
-                {exportMessage}
-                {exportUrl && (
-                  <a
-                    href={exportUrl}
-                    download={`tracks-${selectedYear ?? 'all'}.png`}
-                    className="ml-3 underline"
-                  >
-                    {locale === 'zh' ? '下载图片' : 'Download image'}
-                  </a>
-                )}
-              </p>
-            )}
-            {clustering ? (
-              <div className="flex flex-wrap gap-1">
-                {trackPlaceholders.map((placeholder) => (
-                  <div
-                    key={placeholder.id}
-                    className="h-[80px] w-[80px] animate-pulse rounded bg-[var(--color-border)]"
-                    style={{ animationDelay: `${placeholder.delay}ms` }}
-                  />
-                ))}
-              </div>
-            ) : clusteredTracks.length === 0 ? (
-              <p className="py-8 text-center text-sm text-[var(--color-muted)]">
+            {sortedTracks.length === 0 ? (
+              <p className="flex flex-1 items-center justify-center py-8 text-center text-sm text-[var(--color-muted)]">
                 {locale === 'zh' ? '暂无轨迹数据' : 'No tracks found'}
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex min-h-0 flex-1 flex-wrap content-start gap-1">
                 {sortedTracks.map(({ representative: a, count, color }) => (
                   <div key={a.run_id} className="track-cell relative">
                     <TrackThumb
@@ -687,50 +626,6 @@ export function TracksPage({
                     )}
                   </div>
                 ))}
-              </div>
-            )}
-
-            {/* Legend + sort */}
-            {!clustering && clusteredTracks.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-muted)]">
-                {sportFilter === null ||
-                sportFilter === 'cycling' ||
-                sportFilter === 'Ride' ? (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-3 rounded bg-[#3b82f6]" />
-                      {locale === 'zh' ? '骑行' : 'Ride'}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-3 rounded bg-[#1d4ed8]" />
-                      {locale === 'zh' ? '骑行 ≥60km' : 'Ride ≥60km'}
-                    </span>
-                  </>
-                ) : null}
-                {null}
-                {null}
-                <div className="ml-auto flex items-center gap-1">
-                  <span>
-                    {clusteredTracks.length}{' '}
-                    {locale === 'zh' ? '条路线' : 'routes'}
-                  </span>
-                  <span className="mx-1.5 text-[var(--color-border)]">·</span>
-                  <button
-                    aria-pressed={sortBy === 'date'}
-                    onClick={() => setSortBy('date')}
-                    className={`transition-colors ${sortBy === 'date' ? 'font-medium text-[var(--color-text)]' : 'hover:text-[var(--color-text)]'}`}
-                  >
-                    {locale === 'zh' ? '时间' : 'Date'}
-                  </button>
-                  <span className="text-[var(--color-border)]">/</span>
-                  <button
-                    aria-pressed={sortBy === 'distance'}
-                    onClick={() => setSortBy('distance')}
-                    className={`transition-colors ${sortBy === 'distance' ? 'font-medium text-[var(--color-text)]' : 'hover:text-[var(--color-text)]'}`}
-                  >
-                    {locale === 'zh' ? '距离' : 'Dist'}
-                  </button>
-                </div>
               </div>
             )}
           </div>

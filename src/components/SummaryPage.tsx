@@ -19,6 +19,7 @@ import {
   summaryChart,
   type SummaryPeriod,
 } from '../utils/summary';
+import { Select } from './Select';
 
 const control =
   'rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-text)]';
@@ -219,50 +220,40 @@ export function SummaryPage({
             {t('summarySubtitle')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <label className="text-xs text-[var(--color-muted)]">
-            {t('sport')}
-            <select
-              aria-label={t('sport')}
-              className={`${control} ml-2`}
-              value={sport}
-              onChange={(e) => {
-                setSport(e.target.value);
-                setLimit(12);
-              }}
-            >
-              <option value="all">{t('allSports')}</option>
-              {sports.map((s) => (
-                <option key={s} value={s}>
-                  {sportLabel(s, t)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs text-[var(--color-muted)]">
-            {t('year')}
-            <select
-              aria-label={t('summaryYear')}
-              className={`${control} ml-2`}
-              value={year}
-              onChange={(e) => {
-                setYear(e.target.value);
-                setLimit(12);
-              }}
-            >
-              <option value="all">{t('allYears')}</option>
-              {years.map((y) => (
-                <option key={y}>{y}</option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <Select
+            label={t('sport')}
+            aria-label={t('sport')}
+            value={sport}
+            options={[
+              { value: 'all', label: t('allSports') },
+              ...sports.map((s) => ({ value: s, label: sportLabel(s, t) })),
+            ]}
+            onChange={(value) => {
+              setSport(value);
+              setLimit(12);
+            }}
+          />
+          <Select
+            label={t('year')}
+            aria-label={t('summaryYear')}
+            value={year}
+            options={[
+              { value: 'all', label: t('allYears') },
+              ...years.map((y) => ({ value: y, label: y })),
+            ]}
+            onChange={(value) => {
+              setYear(value);
+              setLimit(12);
+            }}
+          />
         </div>
       </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div
           role="group"
           aria-label={t('summaryPeriod')}
-          className="flex gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-1"
+          className="bento-card !flex-row flex-wrap gap-1 !p-1"
         >
           {periods.map(([value, label]) => (
             <button

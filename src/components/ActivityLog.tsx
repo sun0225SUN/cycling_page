@@ -14,7 +14,9 @@ interface ActivityLogProps {
   filter?: SportFilter;
 }
 
-const PAGE_SIZE = 16;
+/** Rows per page — tuned so the log card height matches the right column
+ *  (route map + personal best + calendar) at the default desktop layout. */
+const PAGE_SIZE = 12;
 
 type DistanceFilter = 'all' | '10' | '20' | '40';
 
@@ -85,7 +87,7 @@ export function ActivityLog({
     <div
       aria-label={t('activityLog')}
       role="region"
-      className="activity-log-card rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 sm:p-6"
+      className="activity-log-card bento-card !p-4 sm:!p-5"
     >
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -110,7 +112,7 @@ export function ActivityLog({
             setYear(null);
             setPage(0);
           }}
-          className={`rounded-full px-3 py-1 text-xs font-medium ${year === null ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]'}`}
+          className={`bento-pill ${year === null ? 'bento-pill-active' : ''}`}
         >
           {t('all')}
         </button>
@@ -123,7 +125,7 @@ export function ActivityLog({
               setYear(y);
               setPage(0);
             }}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${year === y ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]'}`}
+            className={`bento-pill ${year === y ? 'bento-pill-active' : ''}`}
           >
             {y}
           </button>
@@ -152,7 +154,7 @@ export function ActivityLog({
               setDistFilter(val);
               setPage(0);
             }}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${distFilter === val ? 'bg-[var(--color-accent)] text-[var(--color-on-accent)]' : 'bg-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]'}`}
+            className={`bento-pill ${distFilter === val ? 'bento-pill-active' : ''}`}
           >
             {label}
           </button>
@@ -162,24 +164,24 @@ export function ActivityLog({
       <p className="table-scroll-hint mb-2 text-xs text-[var(--color-muted)]">
         {t('selectActivityHint')}
       </p>
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
+      {/* Table — scroll inside the stretched bento card */}
+      <div className="activity-log-table-wrap min-h-0 flex-1 overflow-auto">
+        <table className="activity-log-table w-full min-w-[520px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-muted)]">
-              <th className="pb-3 font-medium">{t('date')}</th>
-              <th className="pb-3 font-medium">{t('type')}</th>
-              <th className="pb-3 font-medium">{t('distance')}</th>
-              <th className="pb-3 font-medium">{t('duration')}</th>
-              <th className="pb-3 font-medium">{t('pace')}</th>
+            <tr className="text-left text-[var(--color-muted)]">
+              <th className="font-medium">{t('date')}</th>
+              <th className="font-medium">{t('type')}</th>
+              <th className="font-medium">{t('distance')}</th>
+              <th className="font-medium">{t('duration')}</th>
+              <th className="font-medium">{t('pace')}</th>
             </tr>
           </thead>
           <tbody>
             {!pageData.length && (
-              <tr>
+              <tr className="activity-log-empty">
                 <td
                   colSpan={5}
-                  className="py-10 text-center text-[var(--color-muted)]"
+                  className="text-center text-[var(--color-muted)]"
                 >
                   {locale === 'zh'
                     ? '没有符合筛选条件的活动'
@@ -187,55 +189,48 @@ export function ActivityLog({
                 </td>
               </tr>
             )}
-            {pageData.map((a) => (
-              <tr
-                key={a.run_id}
-                tabIndex={onSelectActivity ? 0 : undefined}
-                aria-selected={selectedActivity?.run_id === a.run_id}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onSelectActivity?.(
-                      selectedActivity?.run_id === a.run_id ? null : a
-                    );
-                  }
-                }}
-                onClick={() =>
-                  onSelectActivity?.(
-                    selectedActivity?.run_id === a.run_id ? null : a
-                  )
-                }
-                className={`cursor-pointer border-b border-[var(--color-border)]/30 transition-colors ${
-                  selectedActivity?.run_id === a.run_id
-                    ? 'border-l-2 border-l-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                    : 'hover:bg-[var(--color-bg)]'
-                }`}
-              >
-                <td className="py-3 text-[var(--color-muted)]">
-                  {a.start_date_local.slice(0, 16).replace('T', ' ')}
-                </td>
-                <td className="py-3">
-                  <span className="text-[var(--color-muted)]">
-                    {typeIcon(a.type)} {sportLabel(a.type, t)}
-                  </span>
-                </td>
-                <td className="py-3 font-mono font-medium">
-                  {(a.distance / 1000).toFixed(1)}
-                  <span className="ml-1 text-xs font-normal text-[var(--color-muted)]">
-                    km
-                  </span>
-                </td>
-                <td className="py-3 text-[var(--color-muted)]">
-                  {formatDuration(a.moving_time)}
-                </td>
-                <td className="py-3 text-[var(--color-muted)]">
-                  {formatSpeed(a.average_speed)}
-                  {a.average_speed > 0 ? (
-                    <span className="ml-1 text-xs">km/h</span>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
+            {pageData.map((a) => {
+              const selected = selectedActivity?.run_id === a.run_id;
+              return (
+                <tr
+                  key={a.run_id}
+                  tabIndex={onSelectActivity ? 0 : undefined}
+                  aria-selected={selected}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectActivity?.(selected ? null : a);
+                    }
+                  }}
+                  onClick={() => onSelectActivity?.(selected ? null : a)}
+                  className={selected ? 'is-selected' : undefined}
+                >
+                  <td className="text-[var(--color-muted)]">
+                    {a.start_date_local.slice(0, 16).replace('T', ' ')}
+                  </td>
+                  <td>
+                    <span className="text-[var(--color-muted)]">
+                      {typeIcon(a.type)} {sportLabel(a.type, t)}
+                    </span>
+                  </td>
+                  <td className="font-mono font-medium">
+                    {(a.distance / 1000).toFixed(1)}
+                    <span className="ml-1 text-xs font-normal text-[var(--color-muted)]">
+                      km
+                    </span>
+                  </td>
+                  <td className="text-[var(--color-muted)]">
+                    {formatDuration(a.moving_time)}
+                  </td>
+                  <td className="text-[var(--color-muted)]">
+                    {formatSpeed(a.average_speed)}
+                    {a.average_speed > 0 ? (
+                      <span className="ml-1 text-xs">km/h</span>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
