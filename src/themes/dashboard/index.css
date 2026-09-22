@@ -1,5 +1,8 @@
 @import 'tailwindcss';
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Sora:wght@400;600;700;800&display=swap');
+
+/* Fonts are loaded via <link> in index.html — do NOT @import them here.
+   Tailwind expands above and would push a fonts @import past the top of the
+   stylesheet, which triggers: "@import must precede all other statements". */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -30,6 +33,7 @@
 :root,
 .light {
   --color-on-all: #ffffff;
+  --color-heat-empty: #ebedf0;
   --color-heat-1: #d4e8fa;
   --color-heat-2: #8abff0;
   --color-heat-3: #3d94e0;
@@ -53,6 +57,7 @@
   --color-cyan: #64d2ff;
   --color-green: #30d158;
   --color-on-all: #111111;
+  --color-heat-empty: #323236;
   --color-heat-1: #3f451c;
   --color-heat-2: #8b943c;
   --color-heat-3: #c4ce52;
@@ -141,6 +146,25 @@ body {
 .bento-pill-active {
   background: var(--color-accent);
   color: var(--color-on-accent);
+}
+
+/*
+ * Hover surfaces only on real pointer devices. Touch browsers keep :hover
+ * sticky after tap, which leaves a translucent pill background behind icons.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .dashboard .hover-bg-pill:hover {
+    background-color: var(--color-pill);
+  }
+  .dashboard .hover-bg-pill.hover-text:hover {
+    color: var(--color-text);
+  }
+  .dashboard .hover-bg-page:hover {
+    background-color: var(--color-bg);
+  }
+  .dashboard .calendar-day-active:hover {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
 }
 
 /*
@@ -356,52 +380,10 @@ body {
 }
 
 /*
- * Single-year view: align heatmap + footprint on one row (equal card height).
- * All-years view keeps normal column flow so the right stack stays packed under
- * the footprint map instead of being pushed down by a tall heatmap.
+ * Single-year and all-years share the same column shell so the heatmap keeps
+ * a stable full main-column width (no side-by-side stretch with the footprint).
  */
 @media (min-width: 1024px) {
-  .bento-body:not(:has(.heatmap-all-years)) {
-    grid-template-rows: auto auto;
-    align-items: stretch;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .bento-main,
-  .bento-body:not(:has(.heatmap-all-years)) .bento-side {
-    display: contents;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .heatmap-card {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: stretch;
-    height: 100%;
-    min-height: 0;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .heatmap-card .heatmap-card-body {
-    flex: 1 1 auto;
-    justify-content: center;
-    min-height: 120px;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .china-map-card {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: stretch;
-    height: 100%;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .activity-log-card {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .bento-body:not(:has(.heatmap-all-years)) .bento-side-stack {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
   .heatmap-card .heatmap-grid-gap {
     gap: 5px;
   }
@@ -656,29 +638,184 @@ body {
 }
 
 .dashboard .track-cell {
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
+  overflow: visible;
   content-visibility: auto;
   contain-intrinsic-size: 80px 80px;
 }
 .dashboard .exporting .track-cell {
   content-visibility: visible;
 }
+.dashboard .track-thumb {
+  box-sizing: border-box;
+  display: block;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+}
+.dashboard .track-thumb:focus,
+.dashboard .track-thumb:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.dashboard .track-thumb-svg {
+  display: block;
+  width: 80px;
+  height: 80px;
+  max-width: none;
+  overflow: visible;
+}
+.dashboard .track-thumb-path {
+  stroke-width: 1.5;
+  opacity: 0.42;
+  transition:
+    opacity 0.28s ease,
+    stroke-width 0.28s ease;
+}
+.dashboard .track-thumb:hover .track-thumb-path {
+  opacity: 0.72;
+}
+.dashboard .track-thumb.is-selected .track-thumb-path {
+  opacity: 0.95;
+  stroke-width: 1.85;
+}
+.dashboard .exporting .track-thumb-path {
+  opacity: 1;
+  stroke-width: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard .track-thumb-path {
+    transition: none;
+  }
+}
 
-/* Tracks page: left preview column stretches to match track-wall card */
+/*
+ * Tracks page: lock to the viewport under the sticky header so only the
+ * track-thumbnail grid scrolls. Left preview + filters + legend stay put.
+ */
+.dashboard-tracks {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-tracks > header {
+  flex: 0 0 auto;
+}
+.tracks-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.tracks-layout {
+  min-height: 0;
+}
+.tracks-preview {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.tracks-preview-stats,
+.tracks-preview-selected {
+  flex: 0 0 auto;
+}
+/*
+ * Map fills leftover space and clips internally. Keep a usable min-height so
+ * header/footer never crush the canvas; if stats + selected + map don't fit,
+ * the left column scrolls instead of overlapping.
+ */
 .tracks-preview-map {
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 220px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tracks-preview-map > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .tracks-preview-map .route-map {
   flex: 1 1 auto;
+  min-height: 0;
   height: 100%;
-  min-height: 320px;
+  max-height: 100%;
+  overflow: hidden;
+}
+.tracks-preview-map .route-map-header,
+.tracks-preview-map .route-map-footer {
+  flex: 0 0 auto;
 }
 .tracks-preview-map .route-map .route-map-body {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 240px;
+  flex: 1 1 0;
+  min-height: 120px !important;
+  height: auto !important;
+}
+.tracks-wall {
+  min-height: 0;
+}
+.tracks-grid {
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-height: 780px) {
+  .tracks-page {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  .tracks-preview {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .tracks-page {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .dashboard-tracks {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .tracks-preview {
+    overflow: visible;
+  }
+  .tracks-preview-map {
+    flex: 0 0 auto;
+    min-height: 280px;
+    max-height: 420px;
+  }
+  .tracks-grid {
+    max-height: min(60vh, 520px);
+  }
 }
 
 .dashboard .bento-display {
   font-family: var(--font-display);
   letter-spacing: -0.03em;
+}
+
+/* Hide Mapbox logo + attribution / info icon */
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-button {
+  display: none !important;
 }

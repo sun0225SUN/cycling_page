@@ -125,7 +125,7 @@ function Dashboard() {
 
   return (
     <div
-      className="dashboard min-h-screen bg-[var(--color-bg)]"
+      className={`dashboard bg-[var(--color-bg)]${page === 'tracks' ? ' dashboard-tracks' : ' min-h-screen'}`}
       data-filter={filter}
     >
       <Header

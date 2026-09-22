@@ -182,6 +182,13 @@ hr {
   stroke: var(--svg-special-color2);
 }
 
+/* Hide Mapbox logo + attribution / info icon */
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-button {
+  display: none !important;
+}
+
 /* Mobile-specific improvements */
 @media only screen and (max-width: 768px) {
   .mobile-map-container {

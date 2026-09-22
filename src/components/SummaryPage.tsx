@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
-  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,8 +22,7 @@ import { Select } from './Select';
 
 const control =
   'rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-text)]';
-const panel =
-  'rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 sm:p-6';
+const panel = 'bento-card p-5 sm:p-6';
 const number = (value: number) =>
   value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -106,11 +104,6 @@ function SummaryCard({
               data={chart}
               margin={{ top: 8, right: 0, bottom: 0, left: -20 }}
             >
-              <CartesianGrid
-                vertical={false}
-                stroke="var(--color-border)"
-                strokeDasharray="3 3"
-              />
               <XAxis
                 dataKey="label"
                 tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
@@ -127,7 +120,7 @@ function SummaryCard({
                 cursor={{ fill: 'var(--color-border)', opacity: 0.3 }}
                 contentStyle={{
                   background: 'var(--color-card)',
-                  borderColor: 'var(--color-border)',
+                  border: 'none',
                   borderRadius: 8,
                   color: 'var(--color-text)',
                 }}
@@ -152,7 +145,7 @@ function SummaryCard({
           {activities.map((a) => (
             <button
               key={a.run_id}
-              className="flex w-full items-center justify-between gap-3 rounded-lg p-2 text-left text-sm hover:bg-[var(--color-bg)]"
+              className="hover-bg-page flex w-full items-center justify-between gap-3 rounded-lg p-2 text-left text-sm"
               onClick={() => onSelectActivity(a)}
             >
               <span>

@@ -101,7 +101,7 @@ export const PersonalBest = memo(function PersonalBest({
             key={key}
             className={`flex w-full items-center justify-between gap-3 py-1.5 text-left ${
               activity
-                ? '-mx-2 cursor-pointer rounded-lg px-2 hover:bg-[var(--color-bg)]'
+                ? 'hover-bg-page -mx-2 cursor-pointer rounded-lg px-2'
                 : ''
             }`}
             onClick={() => activity && onSelectActivity?.(activity)}

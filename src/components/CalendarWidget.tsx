@@ -108,14 +108,14 @@ export function CalendarWidget({
           {formatDistance(distance)} km
         </span>
         <button
-          className="rounded px-2 hover:bg-[var(--color-bg)]"
+          className="hover-bg-page rounded px-2"
           onClick={() => goToDate(today)}
         >
           {zh ? '本月' : 'This month'}
         </button>
         {latest && (
           <button
-            className="rounded px-2 hover:bg-[var(--color-bg)]"
+            className="hover-bg-page rounded px-2"
             onClick={() => goToDate(new Date(latest))}
           >
             {zh ? '最近活动' : 'Latest'}
@@ -144,7 +144,7 @@ export function CalendarWidget({
               disabled={!list.length}
               aria-pressed={day === number}
               aria-label={`${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(number).padStart(2, '0')} · ${list.length} ${zh ? '次活动' : 'activities'} · ${km.toFixed(1)} km`}
-              className={`calendar-day relative flex h-9 flex-col items-center justify-center rounded-md text-xs ${list.length ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/30' : 'text-[var(--color-muted)]'} ${day === number ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
+              className={`calendar-day relative flex h-9 flex-col items-center justify-center rounded-md text-xs ${list.length ? 'calendar-day-active bg-[var(--color-accent)]/15 text-[var(--color-accent)]' : 'text-[var(--color-muted)]'} ${day === number ? 'ring-2 ring-[var(--color-accent)]' : ''}`}
               onClick={() => {
                 setDay(number);
                 if (!list.length) return;

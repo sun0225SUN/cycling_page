@@ -75,7 +75,7 @@ const TrackThumb = memo(function TrackThumb({
       type="button"
       aria-pressed={selected}
       aria-label={`${activity.start_date_local.slice(0, 16)} · ${activity.name} · ${(activity.distance / 1000).toFixed(1)} km`}
-      className={`track-thumb group relative cursor-pointer rounded transition-all ${selected ? 'ring-2 ring-[var(--color-accent)] ring-offset-1 ring-offset-[var(--color-bg)]' : ''}`}
+      className={`track-thumb group${selected ? 'is-selected' : ''}`}
       onClick={() => onClick(activity)}
       title={`${activity.name} — ${(activity.distance / 1000).toFixed(1)} km`}
     >
@@ -83,13 +83,14 @@ const TrackThumb = memo(function TrackThumb({
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className={`transition-opacity ${selected ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
+        className="track-thumb-svg"
+        aria-hidden="true"
       >
         <polyline
+          className="track-thumb-path"
           points={points}
           fill="none"
           stroke={color}
-          strokeWidth={selected ? '2' : '1.5'}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -138,6 +139,7 @@ export function TracksPage({
   const allYears = useMemo(() => getAvailableYears(activities), [activities]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [sportFilter, setSportFilter] = useState<SportType | null>(null);
+  const [sortBy, setSortBy] = useState<'date' | 'distance'>('date');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null
   );
@@ -209,12 +211,13 @@ export function TracksPage({
 
   const sortedTracks = useMemo(
     () =>
-      [...clusteredTracks].sort(
-        (a, b) =>
-          new Date(b.representative.start_date_local).getTime() -
-          new Date(a.representative.start_date_local).getTime()
+      [...clusteredTracks].sort((a, b) =>
+        sortBy === 'distance'
+          ? b.representative.distance - a.representative.distance
+          : new Date(b.representative.start_date_local).getTime() -
+            new Date(a.representative.start_date_local).getTime()
       ),
-    [clusteredTracks]
+    [clusteredTracks, sortBy]
   );
 
   const handleSelectTrack = useCallback(
@@ -254,9 +257,9 @@ export function TracksPage({
   ];
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 sm:py-6">
+    <div className="tracks-page mx-auto flex max-w-[1400px] flex-col px-4 py-5 sm:px-6 sm:py-6">
       {/* Top bar: back + title */}
-      <div className="mb-5 flex items-center gap-4">
+      <div className="mb-5 flex shrink-0 items-center gap-4">
         <button
           onClick={onBack}
           className="flex shrink-0 items-center gap-1.5 text-sm text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
@@ -281,14 +284,14 @@ export function TracksPage({
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] lg:items-stretch">
-        {/* Left: stats + map — stretches to match track wall height */}
+      <div className="tracks-layout grid min-h-0 flex-1 grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
+        {/* Left: stats + map — fixed in the viewport column */}
         <div
           ref={previewRef}
-          className="tracks-preview flex h-full w-full min-w-0 scroll-mt-28 flex-col gap-4 lg:sticky lg:top-24"
+          className="tracks-preview flex h-full min-h-0 w-full min-w-0 flex-col gap-4"
         >
           {/* Stats card — 2×2 grid: 活动/时间/距离/均速 */}
-          <div className="bento-card p-4">
+          <div className="tracks-preview-stats bento-card p-4">
             <p className="mb-3 text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
               {selectedYear ?? (locale === 'zh' ? '全部' : 'Total')}
             </p>
@@ -343,7 +346,7 @@ export function TracksPage({
 
           {/* Activity detail — only when a single track is selected */}
           {selectedActivity && (
-            <div className="bento-card p-4">
+            <div className="tracks-preview-selected bento-card p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-[10px] tracking-wider text-[var(--color-muted)] uppercase">
                   {locale === 'zh' ? '已选记录' : 'Selected'}
@@ -464,14 +467,14 @@ export function TracksPage({
           </div>
         </div>
 
-        {/* Right: track grid with year filter inside */}
-        <div className="flex h-full min-w-0 flex-col">
+        {/* Right: filters + scrollable track grid + legend */}
+        <div className="tracks-wall flex min-h-0 min-w-0 flex-col">
           <div
             ref={captureRef}
-            className="bento-card flex h-full min-h-0 flex-col p-4"
+            className="bento-card flex h-full min-h-0 flex-col overflow-hidden p-4"
           >
             {/* Year pills + sport filter */}
-            <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-[var(--color-border)] pb-3">
+            <div className="mb-4 flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-border)] pb-3">
               {totalYearPages > 1 && (
                 <button
                   aria-label={locale === 'zh' ? '较新的年份' : 'Newer years'}
@@ -606,11 +609,11 @@ export function TracksPage({
             </div>
 
             {sortedTracks.length === 0 ? (
-              <p className="flex flex-1 items-center justify-center py-8 text-center text-sm text-[var(--color-muted)]">
+              <p className="flex min-h-0 flex-1 items-center justify-center py-8 text-center text-sm text-[var(--color-muted)]">
                 {locale === 'zh' ? '暂无轨迹数据' : 'No tracks found'}
               </p>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-wrap content-start gap-1">
+              <div className="tracks-grid flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto overscroll-contain p-0.5">
                 {sortedTracks.map(({ representative: a, count, color }) => (
                   <div key={a.run_id} className="track-cell relative">
                     <TrackThumb
@@ -626,6 +629,75 @@ export function TracksPage({
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Legend + route count + sort */}
+            {sortedTracks.length > 0 && (
+              <div className="mt-4 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-muted)]">
+                {(sportFilter === null ||
+                  sportFilter === 'cycling' ||
+                  sportFilter === 'Ride') && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-0.5 w-3 rounded"
+                        style={{ backgroundColor: palette.ride }}
+                      />
+                      {locale === 'zh' ? '骑行' : 'Ride'}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-0.5 w-3 rounded"
+                        style={{ backgroundColor: palette.rideLong }}
+                      />
+                      {locale === 'zh' ? '骑行 ≥60km' : 'Ride ≥60km'}
+                    </span>
+                  </>
+                )}
+                {(sportFilter === null || sportFilter === 'Run') &&
+                  hasSport('Run') && (
+                    <>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-0.5 w-3 rounded"
+                          style={{ backgroundColor: palette.run }}
+                        />
+                        {locale === 'zh' ? '跑步' : 'Run'}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-0.5 w-3 rounded"
+                          style={{ backgroundColor: palette.runLong }}
+                        />
+                        {locale === 'zh' ? '跑步 ≥20km' : 'Run ≥20km'}
+                      </span>
+                    </>
+                  )}
+                <div className="ml-auto flex items-center gap-1">
+                  <span>
+                    {sortedTracks.length}{' '}
+                    {locale === 'zh' ? '条路线' : 'routes'}
+                  </span>
+                  <span className="mx-1.5 text-[var(--color-border)]">·</span>
+                  <button
+                    type="button"
+                    aria-pressed={sortBy === 'date'}
+                    onClick={() => setSortBy('date')}
+                    className={`transition-colors ${sortBy === 'date' ? 'font-medium text-[var(--color-text)]' : 'hover:text-[var(--color-text)]'}`}
+                  >
+                    {locale === 'zh' ? '时间' : 'Date'}
+                  </button>
+                  <span className="text-[var(--color-border)]">/</span>
+                  <button
+                    type="button"
+                    aria-pressed={sortBy === 'distance'}
+                    onClick={() => setSortBy('distance')}
+                    className={`transition-colors ${sortBy === 'distance' ? 'font-medium text-[var(--color-text)]' : 'hover:text-[var(--color-text)]'}`}
+                  >
+                    {locale === 'zh' ? '距离' : 'Dist'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

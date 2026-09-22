@@ -72,7 +72,7 @@ export function Header({ dark, toggleTheme, page, onNavigate }: HeaderProps) {
                   : 'Switch to dark mode'
             }
             onClick={toggleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-pill)]"
+            className="hover-bg-pill flex h-8 w-8 items-center justify-center rounded-full transition-colors"
           >
             {dark ? (
               <svg
@@ -107,7 +107,7 @@ export function Header({ dark, toggleTheme, page, onNavigate }: HeaderProps) {
           <button
             type="button"
             onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-[var(--color-muted)] transition-colors hover:bg-[var(--color-pill)] hover:text-[var(--color-text)]"
+            className="hover-bg-pill hover-text flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-[var(--color-muted)] transition-colors"
             title={locale === 'zh' ? 'Switch to English' : '切换中文'}
             aria-label={locale === 'zh' ? 'Switch to English' : '切换中文'}
           >
@@ -117,7 +117,7 @@ export function Header({ dark, toggleTheme, page, onNavigate }: HeaderProps) {
             href="https://github.com/yihong0618/running_page"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors hover:bg-[var(--color-pill)] hover:text-[var(--color-text)]"
+            className="hover-bg-pill hover-text flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-muted)] transition-colors"
             title="GitHub"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">

@@ -177,7 +177,7 @@ export function Select({
                     ? 'bg-[var(--color-accent)] font-semibold text-[var(--color-on-accent)]'
                     : isActive
                       ? 'bg-[var(--color-pill)] text-[var(--color-text)]'
-                      : 'text-[var(--color-text)] hover:bg-[var(--color-pill)]'
+                      : 'hover-bg-pill text-[var(--color-text)]'
                 }`}
               >
                 <span className="flex items-center justify-between gap-3">

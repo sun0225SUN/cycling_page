@@ -152,20 +152,38 @@
   overflow: hidden;
   border: 1px solid var(--color-border);
   background: var(--color-card);
-  box-shadow: 0 2px 8px #0002;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.dark .route-map .mapboxgl-ctrl-group {
+  background: #1c1c1e;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 .route-map .mapboxgl-ctrl-group button {
   width: 36px;
   height: 36px;
+  background-color: transparent;
 }
 .route-map .mapboxgl-ctrl-group button + button {
-  border-color: var(--color-border);
+  border-top-color: var(--color-border);
 }
-.route-map .mapboxgl-ctrl-group button:hover {
-  background: var(--color-bg);
+/* Beat mapbox-gl default: `.mapboxgl-ctrl button:not(:disabled):hover { background:#eee }` */
+.route-map .mapboxgl-ctrl button:not(:disabled):hover,
+.route-map .mapboxgl-ctrl button:not(:disabled):focus {
+  background-color: var(--color-pill);
+}
+.route-map .mapboxgl-ctrl-group button:focus {
+  box-shadow: none;
+}
+.route-map .mapboxgl-ctrl-group button:focus:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 .dark .route-map .mapboxgl-ctrl-icon {
-  filter: invert(1);
+  filter: invert(1) brightness(1.05);
+}
+@media (hover: none), (pointer: coarse) {
+  .route-map .mapboxgl-ctrl button:not(:disabled):hover {
+    background-color: transparent;
+  }
 }
 .route-map-empty {
   position: absolute;

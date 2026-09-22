@@ -327,12 +327,67 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
       className="heatmap-card bento-card"
     >
       <style>{`
-        .heatmap-grid-gap {
+        .heatmap-year-row,
+        .heatmap-scroll-x,
+        .heatmap-grid-canvas {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          box-sizing: border-box;
+        }
+        .heatmap-calendar {
+          display: grid;
+          width: 100%;
+          box-sizing: border-box;
+          grid-template-columns: 14px minmax(0, 1fr);
+          column-gap: 6px;
+          row-gap: 4px;
+        }
+        .heatmap-month-track,
+        .heatmap-cells {
+          display: grid;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
           gap: 4px;
         }
+        .heatmap-month-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          color: var(--color-muted);
+          line-height: 1;
+        }
+        .heatmap-weekday-gutter {
+          display: grid;
+          grid-template-rows: repeat(7, minmax(0, 1fr));
+          row-gap: 4px;
+        }
+        .heatmap-weekday-gutter > span {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          line-height: 1;
+          color: var(--color-muted);
+        }
         .heatmap-day {
-          min-width: 11px;
-          min-height: 11px;
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          min-width: 0;
+          min-height: 0;
+          padding: 0;
+          border: 0;
+          border-radius: 2px;
+          box-sizing: border-box;
+        }
+        .heatmap-day-empty {
+          background: var(--color-heat-empty, #323236);
+        }
+        .heatmap-day-pad {
+          visibility: hidden;
+          pointer-events: none;
         }
         .exporting,
         .exporting *,
@@ -489,11 +544,16 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                   </span>
                 </div>
               )}
-              <div className="heatmap-scroll-x w-full min-w-0 overflow-x-auto">
-                <div className="heatmap-grid-canvas min-w-0">
-                  <div className="heatmap-grid-gap mb-1.5 flex w-full">
-                    <div className="heatmap-weekday-gutter w-3.5 shrink-0" />
-                    <div className="heatmap-weeks-row flex min-w-0 flex-1">
+              <div className="heatmap-scroll-x overflow-x-auto">
+                <div className="heatmap-grid-canvas">
+                  <div className="heatmap-calendar">
+                    <div />
+                    <div
+                      className="heatmap-month-track"
+                      style={{
+                        gridTemplateColumns: `repeat(${grid.length}, minmax(0, 1fr))`,
+                      }}
+                    >
                       {monthPositions.map((m, i) => {
                         const nextStart =
                           monthPositions[i + 1]?.weekIdx ?? grid.length;
@@ -501,8 +561,8 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                         return (
                           <div
                             key={m.label}
-                            className="heatmap-month-label truncate text-xs text-[var(--color-muted)]"
-                            style={{ flex: `${span} 1 0%` }}
+                            className="heatmap-month-label"
+                            style={{ gridColumn: `span ${span}` }}
                           >
                             {locale === 'zh'
                               ? `${m.label}月`
@@ -524,99 +584,103 @@ export const ContributionHeatmap = memo(function ContributionHeatmap({
                         );
                       })}
                     </div>
-                  </div>
 
-                  <div className="heatmap-grid-gap flex w-full items-stretch">
-                    <div className="heatmap-grid-gap heatmap-weekday-gutter flex w-3.5 shrink-0 flex-col">
+                    <div className="heatmap-weekday-gutter">
                       {dayLabels.map((d, i) => (
-                        <div
-                          key={weekdayIds[i]}
-                          className="flex flex-1 items-center justify-center text-[10px] leading-none text-[var(--color-muted)]"
-                        >
-                          {d}
-                        </div>
+                        <span key={weekdayIds[i]}>{d}</span>
                       ))}
                     </div>
 
-                    <div className="heatmap-weeks-row heatmap-grid-gap flex min-w-0 flex-1">
-                      {grid.map((week) => {
-                        const weekKey = week[0]?.date ?? `empty-${week.length}`;
-                        // Pad first/last week so each column has 7 rows (Sun–Sat)
+                    <div
+                      className="heatmap-cells"
+                      style={{
+                        gridTemplateColumns: `repeat(${grid.length}, minmax(0, 1fr))`,
+                        gridTemplateRows: 'repeat(7, auto)',
+                      }}
+                    >
+                      {grid.flatMap((week, weekIndex) => {
                         const lead = week[0]
                           ? new Date(week[0].date + 'T00:00:00').getDay()
                           : 0;
-                        // Only pad leading empty days on the first calendar week
-                        const isFirstWeek = week === grid[0];
-                        const leadPads = isFirstWeek ? lead : 0;
+                        const leadPads = weekIndex === 0 ? lead : 0;
                         const cells: {
                           day: (typeof week)[number] | null;
                           key: string;
                         }[] = [
                           ...Array.from({ length: leadPads }, (_, pad) => ({
-                            day: null,
-                            key: `lead-${weekKey}-d${pad}`,
+                            day: null as (typeof week)[number] | null,
+                            key: `lead-${weekIndex}-${pad}`,
                           })),
-                          ...week.map((day) => ({ day, key: day.date })),
+                          ...week.map((day) => ({
+                            day: day as (typeof week)[number] | null,
+                            key: day.date,
+                          })),
                         ];
                         while (cells.length < 7) {
                           cells.push({
                             day: null,
-                            key: `trail-${weekKey}-n${cells.length}`,
+                            key: `trail-${weekIndex}-${cells.length}`,
                           });
                         }
-
-                        return (
-                          <div
-                            key={weekKey}
-                            className="heatmap-week-col heatmap-grid-gap flex min-w-0 flex-1 flex-col"
-                          >
-                            {cells.map(({ day, key }) => {
-                              if (!day) {
-                                return (
-                                  <div
-                                    key={key}
-                                    className="aspect-square w-full"
-                                  />
-                                );
-                              }
-                              const bgColor =
-                                day.distance === 0
-                                  ? 'var(--color-border)'
-                                  : getColor(
-                                      day.distance,
-                                      max,
-                                      isAll ? 'all' : filter,
-                                      heatPalette
-                                    );
-                              const titleText =
-                                day.activities.length === 0
-                                  ? day.date
-                                  : isGym
-                                    ? `${day.date}: ${day.distance} session(s)`
-                                    : day.domType === 'Training'
-                                      ? `${day.date}: ${Math.round(day.timeSecs / 60)}min`
-                                      : `${day.date}: ${(day.activities.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1)} km`;
-                              return (
-                                <button
-                                  type="button"
-                                  disabled={!day.activities.length}
-                                  aria-label={titleText}
-                                  key={day.date}
-                                  className="heatmap-day aspect-square w-full min-w-0 rounded-sm hover:ring-1 hover:ring-[var(--color-muted)]"
-                                  style={{ backgroundColor: bgColor }}
-                                  title={titleText}
-                                  onClick={() => {
-                                    if (!day.activities.length) return;
-                                    const pick = [...day.activities].sort(
-                                      (a, b) => b.distance - a.distance
-                                    )[0];
-                                    onSelectActivity?.(pick);
-                                  }}
-                                />
+                        return cells.map(({ day, key }, rowIndex) => {
+                          if (!day) {
+                            return (
+                              <div
+                                key={key}
+                                className="heatmap-day heatmap-day-pad"
+                                style={{
+                                  gridColumn: weekIndex + 1,
+                                  gridRow: rowIndex + 1,
+                                }}
+                              />
+                            );
+                          }
+                          const isEmpty = day.distance === 0;
+                          const bgColor = isEmpty
+                            ? undefined
+                            : getColor(
+                                day.distance,
+                                max,
+                                isAll ? 'all' : filter,
+                                heatPalette
                               );
-                            })}
-                          </div>
-                        );
+                          const titleText =
+                            day.activities.length === 0
+                              ? day.date
+                              : isGym
+                                ? `${day.date}: ${day.distance} session(s)`
+                                : day.domType === 'Training'
+                                  ? `${day.date}: ${Math.round(day.timeSecs / 60)}min`
+                                  : `${day.date}: ${(day.activities.reduce((s, a) => s + a.distance, 0) / 1000).toFixed(1)} km`;
+                          return (
+                            <button
+                              type="button"
+                              disabled={!day.activities.length}
+                              aria-label={titleText}
+                              key={day.date}
+                              className={
+                                isEmpty
+                                  ? 'heatmap-day heatmap-day-empty'
+                                  : 'heatmap-day'
+                              }
+                              style={{
+                                gridColumn: weekIndex + 1,
+                                gridRow: rowIndex + 1,
+                                ...(bgColor
+                                  ? { backgroundColor: bgColor }
+                                  : {}),
+                              }}
+                              title={titleText}
+                              onClick={() => {
+                                if (!day.activities.length) return;
+                                const pick = [...day.activities].sort(
+                                  (a, b) => b.distance - a.distance
+                                )[0];
+                                onSelectActivity?.(pick);
+                              }}
+                            />
+                          );
+                        });
                       })}
                     </div>
                   </div>
